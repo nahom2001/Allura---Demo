@@ -1,0 +1,8 @@
+{
+  "name": "Remix: Material and Store Registry",
+  "description": "A condensed procurement and material inventory dashboard allowing store registration, material tracking, and global inventory management.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
