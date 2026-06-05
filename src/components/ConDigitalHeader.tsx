@@ -12,6 +12,7 @@ interface ConDigitalHeaderProps {
 export default function ConDigitalHeader({ currentTab, setCurrentTab, activeSubTab, setActiveSubTab }: ConDigitalHeaderProps) {
   const menuItems = [
     { name: 'Project' },
+    { name: 'Human Resource' },
     { name: 'Procurement' },
     { name: 'Inventory' },
     { name: 'Site Visit' },
@@ -26,9 +27,11 @@ export default function ConDigitalHeader({ currentTab, setCurrentTab, activeSubT
     'Store Requisition',
     'Purchase Requisition',
     'PR Purchaser',
+    'Inter-store Transfer',
     'Purchase Evaluation',
     'Purchase Order',
     'Voucher Validation',
+    'Follow Up'
   ];
 
   return (
@@ -93,20 +96,7 @@ export default function ConDigitalHeader({ currentTab, setCurrentTab, activeSubT
         </div>
       </div>
 
-      {/* BLOCK-2-Materials Title banner exactly like Screenshot 2 */}
-      <div className="bg-[#f8fafc] px-6 py-4">
-        <div className="bg-white border border-slate-200/60 rounded-xl px-5 py-4 shadow-2xs flex items-center justify-between">
-          <div className="flex items-center space-x-2.5">
-            <span className="h-5 w-1.5 bg-blue-700 rounded-full"></span>
-            <span className="text-base font-bold text-slate-800 tracking-tight font-display">
-              BLOCK-2-Materials
-            </span>
-          </div>
-          <button className="p-1 text-slate-400 hover:text-slate-600 hover:bg-slate-50 rounded-lg transition">
-            <ChevronRight size={18} />
-          </button>
-        </div>
-      </div>
+      {/* Sub tabs navigation seamlessly below top brand header */}
 
       {/* Procurement Sub Navigation Tab list block - EXACT replica of Screenshot 3 / 4 via AntD Menu */}
       <div className="bg-white border-b border-slate-200 px-6">

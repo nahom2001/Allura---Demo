@@ -220,7 +220,7 @@ export default function PurchaseOrderView({
   };
 
   // Update item fields
-  const handleUpdateItemField = (index: number, field: keyof Omit<PurchaseOrderItem, 'id'>, value: any) => {
+  const handleUpdateItemField = (index: number, field: keyof Omit<PurchaseOrderItem, 'id'>, value: string | number) => {
     const updated = [...items];
     updated[index] = {
       ...updated[index],

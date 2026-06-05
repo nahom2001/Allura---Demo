@@ -124,7 +124,7 @@ export default function SIVModal({
     setLineItems(prev => prev.filter(item => item.id !== id));
   };
 
-  const handleUpdateLineItem = (id: string, field: keyof SIVLineItem, value: any) => {
+  const handleUpdateLineItem = (id: string, field: keyof SIVLineItem, value: string | number) => {
     setLineItems(prev => prev.map(item => {
       if (item.id === id) {
         return { ...item, [field]: value };

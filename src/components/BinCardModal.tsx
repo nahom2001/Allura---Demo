@@ -822,7 +822,7 @@ export default function BinCardModal({
                       <label className="block text-[11px] font-bold uppercase text-slate-500 mb-1">Entry Type</label>
                       <select
                         value={type}
-                        onChange={(e) => setType(e.target.value as any)}
+                        onChange={(e) => setType(e.target.value as 'RECEIVED' | 'ISSUED' | 'RETURNED' | 'TRANSFERRED')}
                         className="w-full px-3 py-2 text-xs text-slate-850 bg-white border border-slate-250 rounded outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/10 cursor-pointer font-bold"
                       >
                         <option value="RECEIVED">GRN - Receive Inward</option>

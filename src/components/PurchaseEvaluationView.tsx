@@ -157,7 +157,7 @@ export default function PurchaseEvaluationView({
   };
 
   // Update a comparison row field
-  const handleUpdateComparisonRow = (index: number, field: keyof Omit<PurchaseEvaluationItem, 'id'>, value: any) => {
+  const handleUpdateComparisonRow = (index: number, field: keyof Omit<PurchaseEvaluationItem, 'id'>, value: string | number) => {
     const updated = [...comparisons];
     updated[index] = {
       ...updated[index],

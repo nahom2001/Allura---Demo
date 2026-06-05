@@ -139,7 +139,7 @@ export default function GRVModal({
     setLineItems(prev => prev.filter(item => item.id !== id));
   };
 
-  const handleUpdateLineItem = (id: string, field: keyof GRVLineItem, value: any) => {
+  const handleUpdateLineItem = (id: string, field: keyof GRVLineItem, value: string | number) => {
     setLineItems(prev => prev.map(item => {
       if (item.id === id) {
         return { ...item, [field]: value };

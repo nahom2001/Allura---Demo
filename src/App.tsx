@@ -847,7 +847,7 @@ export default function App() {
       title: 'Action',
       key: 'action',
       align: 'center' as const,
-      render: (_: any, record: Material) => {
+      render: (_: unknown, record: Material) => {
         const actionMenuItems = [
           {
             key: 'edit',
@@ -895,17 +895,8 @@ export default function App() {
       {/* Main Container Layout */}
       <main className="flex-1 max-w-7xl w-full mx-auto p-4 md:p-6" id="app-body">
         
-        {/* Dynamic Aggregated Dashboard Metrix Panel */}
-        <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <h1 className="text-xl font-bold tracking-tight text-slate-800 font-display">
-              Procurement Inventory & Material Reserves
-            </h1>
-            <p className="text-xs text-slate-400 mt-0.5">
-              Live dashboard corresponding to registered store locations and active material BoQ items.
-            </p>
-          </div>
-          
+        {/* Sleek layout with action shortcuts */}
+        <div className="mb-4 flex flex-col sm:flex-row sm:items-center justify-end gap-3">
           {(activeSubTab === 'Material' || activeSubTab === 'Store') && (
             <div className="flex items-center gap-2.5 self-start sm:self-center">
               <Button
@@ -933,7 +924,7 @@ export default function App() {
                   }
                   setIsSIVOpen(true);
                 }}
-                className="font-semibold flex items-center shadow-sm h-9 px-4 cursor-pointer text-slate-705 border border-slate-205 hover:border-slate-300 rounded-lg bg-white"
+                className="font-semibold flex items-center shadow-sm h-9 px-4 cursor-pointer text-slate-755 border border-slate-205 hover:border-slate-300 rounded-lg bg-white"
                 title="Register a brand new Store Issue Voucher (SIV)"
               >
                 Register SIV

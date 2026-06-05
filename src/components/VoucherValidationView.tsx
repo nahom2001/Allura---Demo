@@ -544,7 +544,7 @@ export default function VoucherValidationView({
     {
       title: 'Voucher Info',
       key: 'voucherInfo',
-      render: (text: any, record: BinCardTransaction) => {
+      render: (_: unknown, record: BinCardTransaction) => {
         const mat = materials.find(m => m.id === record.materialId);
         const status = record.qaStatus || (record.qaApprovedById ? 'Approved' : 'Pending');
         let statusTagColor = 'orange';
@@ -570,7 +570,7 @@ export default function VoucherValidationView({
             </p>
             <div className="flex items-center justify-between text-[10px] text-[#8c8c8c] pt-1">
               <span>Qty: <strong className="text-slate-700">{record.receivedQty} {mat?.unit || 'Units'}</strong></span>
-              <span>Date: <strong className="text-slate-700">{record.date}</strong></span>
+              <span>Date: <strong className="text-slate-705">{record.date}</strong></span>
             </div>
           </div>
         );
@@ -580,10 +580,18 @@ export default function VoucherValidationView({
       title: 'Action',
       key: 'action',
       width: 75,
-      render: (text: any, record: BinCardTransaction) => {
+      render: (_: unknown, record: BinCardTransaction) => {
         const status = record.qaStatus || (record.qaApprovedById ? 'Approved' : 'Pending');
         
-        const menuItems: any[] = [
+        interface MenuItemType {
+          key: string;
+          label: string;
+          icon: React.ReactNode;
+          danger?: boolean;
+          onClick: () => void;
+        }
+
+        const menuItems: MenuItemType[] = [
           {
             key: 'view',
             label: 'View Audit',
@@ -630,12 +638,12 @@ export default function VoucherValidationView({
       key: 'index',
       width: 50,
       align: 'center' as const,
-      render: (value: any, record: NewVoucherItem, index: number) => index + 1
+      render: (_: unknown, record: NewVoucherItem, index: number) => index + 1
     },
     {
       title: 'Material Code',
       key: 'code',
-      render: (value: any, record: NewVoucherItem) => {
+      render: (_: unknown, record: NewVoucherItem) => {
         const matInfo = materials.find(m => m.id === record.materialId);
         return <span className="font-mono font-medium">{matInfo?.code || 'AUTO'}</span>;
       }
@@ -643,7 +651,7 @@ export default function VoucherValidationView({
     {
       title: 'Material Description',
       key: 'description',
-      render: (value: any, record: NewVoucherItem) => {
+      render: (_: unknown, record: NewVoucherItem) => {
         const matInfo = materials.find(m => m.id === record.materialId);
         return <span className="text-slate-800 font-medium">{matInfo?.description || 'N/A'}</span>;
       }
@@ -652,7 +660,7 @@ export default function VoucherValidationView({
       title: 'Unit',
       key: 'unit',
       align: 'center' as const,
-      render: (value: any, record: NewVoucherItem) => {
+      render: (_: unknown, record: NewVoucherItem) => {
         const matInfo = materials.find(m => m.id === record.materialId);
         return <span className="text-slate-500">{matInfo?.unit || 'Units'}</span>;
       }
@@ -661,14 +669,14 @@ export default function VoucherValidationView({
       title: 'Quantity',
       key: 'quantity',
       align: 'right' as const,
-      render: (value: any, record: NewVoucherItem) => (
+      render: (_: unknown, record: NewVoucherItem) => (
         <span className="font-mono font-bold text-slate-950">{record.quantity}</span>
       )
     },
     {
       title: 'Specification / Remarks',
       key: 'spec',
-      render: (value: any, record: NewVoucherItem) => (
+      render: (_: unknown, record: NewVoucherItem) => (
         <span className="text-slate-600 italic text-[11px]">{record.spec}</span>
       )
     },
@@ -676,7 +684,7 @@ export default function VoucherValidationView({
       title: 'Action',
       key: 'action',
       align: 'center' as const,
-      render: (value: any, record: NewVoucherItem) => (
+      render: (_: unknown, record: NewVoucherItem) => (
         <Button 
           type="link" 
           danger 
@@ -700,7 +708,7 @@ export default function VoucherValidationView({
     {
       title: 'Reference Document',
       key: 'reference',
-      render: (text: any, record: BinCardTransaction) => (
+      render: (_: unknown, record: BinCardTransaction) => (
         <span className="font-medium text-slate-500">
           {record.remark && record.remark.includes('Pad Ref:') ? record.remark.split('Pad Ref:')[1].trim() : 'N/A Code'}
         </span>
@@ -709,7 +717,7 @@ export default function VoucherValidationView({
     {
       title: 'Category',
       key: 'category',
-      render: (text: any, record: BinCardTransaction) => {
+      render: (_: unknown, record: BinCardTransaction) => {
         const matObj = materials.find(m => m.id === record.materialId);
         return <span className="text-slate-500 text-[11px]">{matObj?.category || 'General BoQ'}</span>;
       }
@@ -723,7 +731,7 @@ export default function VoucherValidationView({
     {
       title: 'Material Asset Block',
       key: 'materialAssetBlock',
-      render: (text: any, record: BinCardTransaction) => {
+      render: (_: unknown, record: BinCardTransaction) => {
         const matObj = materials.find(m => m.id === record.materialId);
         return <span className="font-medium text-slate-800">{matObj?.description || 'N/A Item'}</span>;
       }
@@ -732,7 +740,7 @@ export default function VoucherValidationView({
       title: 'Inbound (Qty)',
       key: 'inbound',
       align: 'right' as const,
-      render: (text: any, record: BinCardTransaction) => (
+      render: (_: unknown, record: BinCardTransaction) => (
         <span className="text-emerald-600 font-mono font-bold">{record.receivedQty || '-'}</span>
       )
     },
@@ -740,7 +748,7 @@ export default function VoucherValidationView({
       title: 'Outbound (Qty)',
       key: 'outbound',
       align: 'right' as const,
-      render: (text: any, record: BinCardTransaction) => (
+      render: (_: unknown, record: BinCardTransaction) => (
         <span className="text-rose-600 font-mono font-bold">{record.issuedQty || record.transferredQty || '-'}</span>
       )
     },
@@ -748,7 +756,7 @@ export default function VoucherValidationView({
       title: 'Unit',
       key: 'unit',
       align: 'center' as const,
-      render: (text: any, record: BinCardTransaction) => {
+      render: (_: unknown, record: BinCardTransaction) => {
         const matObj = materials.find(m => m.id === record.materialId);
         return <span className="text-slate-400 text-[11px]">{matObj?.unit || 'PCS'}</span>;
       }
@@ -757,7 +765,7 @@ export default function VoucherValidationView({
       title: 'Unit Price (ETB)',
       key: 'unitPrice',
       align: 'right' as const,
-      render: (text: any, record: BinCardTransaction) => (
+      render: (_: unknown, record: BinCardTransaction) => (
         <span className="font-mono font-semibold text-slate-700">{record.unitPrice.toLocaleString()}</span>
       )
     },
@@ -765,7 +773,7 @@ export default function VoucherValidationView({
       title: 'Audit Status',
       key: 'auditStatus',
       align: 'center' as const,
-      render: (text: any, record: BinCardTransaction) => {
+      render: (_: unknown, record: BinCardTransaction) => {
         const status = record.qaStatus || (record.qaApprovedById ? 'Approved' : 'Pending');
         let auditBadge = 'text-[#faad14] bg-[#fffbe6] border-[#ffe58f]';
         if (status === 'Approved') {
@@ -786,35 +794,6 @@ export default function VoucherValidationView({
 
   return (
     <div className="space-y-4 font-sans text-left" id="voucher-validation-view">
-      
-      {/* 1. Header Alerts & Summary Segment Card */}
-      <div className="bg-[#f0f5ff] border border-[#adc6ff] p-4 rounded-[6px] shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-        <div className="space-y-1">
-          <div className="flex items-center gap-2">
-            <span className="h-2.5 w-2.5 rounded-full bg-[#1677ff] animate-ping"></span>
-            <h3 className="text-base font-semibold text-[#1f1f1f]">ConDigital Voucher Auditor & Reconciliation Module</h3>
-          </div>
-          <p className="text-xs text-[#595959]">
-            Active User: <strong className="text-slate-800">{currentUserObj?.name}</strong> ({currentUserObj?.role}) 
-            {isSuperUser ? (
-              <span className="ml-1.5 px-2 py-0.5 bg-[#f6ffed] text-[#52c41a] border border-[#b7eb8f] rounded text-[10px] font-semibold">Super User Privilege Mode (Full Access)</span>
-            ) : (
-              <span className="ml-1.5 px-2 py-0.5 bg-[#fff7e6] text-[#fa8c16] border border-[#ffd591] rounded text-[10px] font-semibold">Limited Matrix Access Controls Active</span>
-            )}
-          </p>
-        </div>
-
-        {/* Access Matrix Stats quick status tags */}
-        <div className="flex flex-wrap items-center gap-1.5 text-[11px] bg-white px-3 py-1.5 rounded border border-[#d9d9d9]">
-          <span className="text-[#8c8c8c]">Vouchers Indexed:</span>
-          <span className="font-semibold text-[#262626]">{totalGrvs} Vouchers</span>
-          <span className="h-3 w-px bg-slate-200"></span>
-          <span className="text-[#faad14] font-semibold">{pendingQty} Pending</span>
-          <span className="text-[#52c41a] font-semibold">{approvedQty} Approved</span>
-          <span className="text-[#fa541c] font-semibold">{revisionQty} Needs Rev</span>
-          <span className="text-[#ff4d4f] font-semibold">{rejectedQty} Rejected</span>
-        </div>
-      </div>
 
       {successMessage && (
         <div className="p-3 bg-[#f6ffed] border border-[#b7eb8f] text-[#389e0d] rounded-[6px] text-xs font-normal flex items-center justify-between shadow-3xs transition duration-300">
@@ -832,7 +811,7 @@ export default function VoucherValidationView({
       <Menu
         mode="horizontal"
         selectedKeys={[activeTab]}
-        onClick={(info) => setActiveTab(info.key as any)}
+        onClick={(info) => setActiveTab(info.key as 'ledger' | 'register' | 'reports' | 'access')}
         className="border-b border-[#f0f0f0] bg-white rounded-t-[6px] px-1 shadow-3xs mb-4"
         items={[
           {
@@ -1316,9 +1295,6 @@ export default function VoucherValidationView({
               <h3 className="text-base font-semibold text-[#262626]">New Multiple Material Voucher Registration</h3>
               <p className="text-xs text-[#8c8c8c] mt-0.5">Prepare Store Requisitions, Goods Received Vouchers, or Daily Report logs with multiple item assets.</p>
             </div>
-            <span className="text-xs font-mono font-bold bg-[#fafafa] border px-2 py-1 text-slate-500 rounded uppercase">
-              Form Frame: Page-2
-            </span>
           </div>
 
           {/* Form Context Info Row */}
@@ -1338,7 +1314,7 @@ export default function VoucherValidationView({
               <label className="block text-xs font-medium text-slate-600 mb-1.5">* Voucher Structure Type</label>
               <select
                 value={newVoucherType}
-                onChange={(e) => setNewVoucherType(e.target.value as any)}
+                onChange={(e) => setNewVoucherType(e.target.value as 'Goods Received' | 'Store Requisition' | 'Daily Report')}
                 className="w-full h-8 px-2.5 bg-white border border-[#d9d9d9] hover:border-[#4096ff] focus:border-[#4096ff] focus:outline-none rounded-[4px] text-xs cursor-pointer"
               >
                 <option value="Goods Received">Goods Received Note (GRV)</option>
@@ -1504,12 +1480,7 @@ export default function VoucherValidationView({
 
           </div>
 
-          <div className="flex justify-between items-center bg-[#fafafa] p-3 rounded-[6px] border text-xs gap-3">
-            <span className="text-slate-500 flex items-center gap-1">
-              <Unlock size={12} className="text-emerald-500" />
-              <span>Security Access Level Check valid. Entries will automatically populate inside reports and live ledger stacks.</span>
-            </span>
-
+          <div className="flex justify-end items-center bg-[#fafafa] p-3 rounded-[6px] border text-xs gap-3">
             <div className="flex gap-2.5 shrink-0">
               <Button
                 type="default"
@@ -1595,7 +1566,7 @@ export default function VoucherValidationView({
               <label className="block text-slate-500 font-semibold mb-1">* Report Selection</label>
               <select
                 value={reportType}
-                onChange={(e) => setReportType(e.target.value as any)}
+                onChange={(e) => setReportType(e.target.value as 'Bin Card' | 'Stock Movement' | 'Monthly Report')}
                 className="w-full h-8 px-2 bg-white border rounded border-[#d9d9d9] outline-none font-medium text-slate-700 cursor-pointer"
               >
                 <option value="Bin Card">Bin Card Movement Ledger</option>
@@ -1666,40 +1637,24 @@ export default function VoucherValidationView({
             />
           </div>
 
-          {/* Reports calculation formula signpost block (Page 3) */}
-          <div className="bg-[#fff7e6] border border-[#ffd591] p-4 rounded-[6px] text-left text-xs text-[#d48806] space-y-1">
-            <h5 className="font-bold flex items-center gap-1.5 text-[#b7791f]">
-              <AlertCircle size={14} />
-              <span>ConDigital Analytics Performance Warning: Front-End calculation weight constraints</span>
-            </h5>
-            <p className="leading-relaxed">
-              Voucher aggregates and inventory formula checking are processed instantly on the <strong>front-end (lightweight model)</strong> to ensure minimal latency. Large datasets of more than 500 parallel transactions will utilize web workers safely to bypass UI thread lag.
-            </p>
-          </div>
+          {/* Tab footer content spacer */}
 
         </div>
       )}
 
-      {/* TAB D: Access Control Matrix (Page 4 & 5) */}
+      {/* TAB D: Access Control Matrix (Roles) */}
       {activeTab === 'access' && (
         <div className="bg-white border border-[#f0f0f0] rounded-[6px] p-6 shadow-sm space-y-6 text-left">
           
-          <div className="border-b border-[#f0f0f0] pb-3 flex justify-between items-center">
-            <div>
-              <h3 className="text-base font-semibold text-[#262626]">Access Control Settings & Company User Matrix</h3>
-              <p className="text-xs text-[#8c8c8c] mt-0.5">Toggle active user identities, set activated/terminated status, and audit permissions matrix guidelines.</p>
-            </div>
-            <span className="text-xs font-mono font-bold bg-[#fafafa] border px-2 py-1 text-slate-500 rounded uppercase">
-              Page-4 Matrix config
-            </span>
+          <div className="border-b border-[#f0f0f0] pb-3">
+            <h3 className="text-base font-semibold text-[#262626]">Access Control Settings & Company User Matrix</h3>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-12 gap-5">
             
             {/* Control Column Selector */}
             <div className="md:col-span-4 bg-[#fafafa] p-4 rounded-[6px] border space-y-4">
-              <h4 className="text-xs font-bold uppercase tracking-wider text-[#262626]">Interactive Simulation Switch</h4>
-              <p className="text-xs text-slate-500">Simulate changing your active profile to test limited roles vs Super User mode constraints instantly.</p>
+              <h4 className="text-xs font-bold uppercase tracking-wider text-[#262626]">User Account Settings</h4>
               
               <div className="space-y-3">
                 
@@ -1719,7 +1674,7 @@ export default function VoucherValidationView({
                   </select>
                 </div>
 
-                {/* User Privilege classification (Page 4) */}
+                {/* User Privilege classification */}
                 <div className="bg-white p-3 rounded border space-y-2">
                   <span className="text-[11px] text-[#8c8c8c] uppercase font-bold tracking-wider block">Access Category</span>
                   
@@ -1731,7 +1686,7 @@ export default function VoucherValidationView({
                         checked={!isSuperUser} 
                         onChange={() => setIsSuperUser(false)}
                       />
-                      <span>Normal User (Role limited)</span>
+                      <span>Normal User</span>
                     </label>
 
                     <label className="flex items-center gap-1.5 cursor-pointer">
@@ -1741,14 +1696,14 @@ export default function VoucherValidationView({
                         checked={isSuperUser} 
                         onChange={() => setIsSuperUser(true)}
                       />
-                      <span className="text-emerald-600">Super User (Full access)</span>
+                      <span className="text-emerald-600">Super User</span>
                     </label>
                   </div>
                 </div>
 
-                {/* Status Toggle (Page 5: Active vs Terminated) */}
+                {/* Status Toggle */}
                 <div className="bg-white p-3 rounded border space-y-2">
-                  <span className="text-[11px] text-[#595959] uppercase font-bold tracking-wider block">Activation Status (Page 5)</span>
+                  <span className="text-[11px] text-[#595959] uppercase font-bold tracking-wider block">Activation Status</span>
                   
                   <div className="flex gap-2">
                     {systemUsers.map(u => {
@@ -1782,9 +1737,9 @@ export default function VoucherValidationView({
               </div>
             </div>
 
-            {/* Matrix Columns Guidelines table (Page 4 manual) */}
+            {/* Matrix Columns Guidelines table */}
             <div className="md:col-span-8 space-y-3 text-left">
-              <h4 className="text-xs font-bold uppercase tracking-wider text-[#262626]">Privileges Access Rights Matrix Matrix (Page-4 & 5)</h4>
+              <h4 className="text-xs font-bold uppercase tracking-wider text-[#262626]">Privileges Access Rights Matrix</h4>
               
               <div className="border border-[#f0f0f0] rounded-[6px] overflow-hidden">
                 <table className="w-full text-left text-xs">
@@ -1837,17 +1792,6 @@ export default function VoucherValidationView({
                     })}
                   </tbody>
                 </table>
-              </div>
-
-              {/* Informative signpost */}
-              <div className="p-3 bg-[#e6f4ff] border border-[#91d5ff] text-[#0050b3] rounded-[4px] text-xs leading-relaxed space-y-1">
-                <h6 className="font-bold flex items-center gap-1 justify-start">
-                  <Unlock size={12} />
-                  <span>Interactive Validation Guardrail Notification</span>
-                </h6>
-                <p>
-                  Checking of user login activation statuses are simulated in real-time. If you set Aster Kebede or Kidus Daniel to <strong>'Terminated'</strong> or toggle their matrix checkboxes, they will be blocked from registering or validating vouchers instantly in Tab A & B.
-                </p>
               </div>
 
             </div>
