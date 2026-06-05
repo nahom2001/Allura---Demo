@@ -31,7 +31,6 @@ export default function ConDigitalHeader({ currentTab, setCurrentTab, activeSubT
     'Purchase Evaluation',
     'Purchase Order',
     'Voucher Validation',
-    'Follow Up'
   ];
 
   return (
