@@ -15,6 +15,9 @@ export default function ConDigitalHeader({ currentTab, setCurrentTab, activeSubT
     { name: 'Human Resource' },
     { name: 'Procurement' },
     { name: 'Inventory' },
+    { name: 'Tender' },
+    { name: 'Database' },
+    { name: 'Finance' },
     { name: 'Site Visit' },
     { name: 'Fixed Asset' },
     { name: 'Task' },
@@ -23,14 +26,17 @@ export default function ConDigitalHeader({ currentTab, setCurrentTab, activeSubT
 
   const subTabs = [
     'Material',
+    'Service List',
+    'Material Starting Balance',
+    'Location',
     'Supplier',
     'Store Requisition',
     'Purchase Requisition',
     'PR Purchaser',
-    'Inter-store Transfer',
     'Purchase Evaluation',
     'Purchase Order',
     'Voucher Validation',
+    'Follow Up'
   ];
 
   return (

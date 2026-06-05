@@ -124,6 +124,14 @@ export default function VoucherValidationView({
   // Action Inputs for the Reconciliation panel
   const [remarksText, setRemarksText] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
+  const [errorMessage, setErrorMessage] = useState('');
+
+  const triggerError = (msg: string) => {
+    setErrorMessage(msg);
+    setTimeout(() => {
+      setErrorMessage(prev => prev === msg ? '' : prev);
+    }, 4500);
+  };
 
   // Initialize form default fields
   useEffect(() => {
@@ -269,11 +277,11 @@ export default function VoucherValidationView({
   const handleApprove = () => {
     if (!activeGrv) return;
     if (isTerminated) {
-      alert('Your user account is Terminated. Access denied.');
+      triggerError('Your user account is Terminated. Access denied.');
       return;
     }
     if (!canPerformAction('Approve')) {
-      alert('Authorized role check error. Your current role lacks Approve permissions.');
+      triggerError('Authorized role check error. Your current role lacks Approve permissions.');
       return;
     }
 
@@ -297,15 +305,15 @@ export default function VoucherValidationView({
   const handleReject = () => {
     if (!activeGrv) return;
     if (isTerminated) {
-      alert('Your user account is Terminated. Access denied.');
+      triggerError('Your user account is Terminated. Access denied.');
       return;
     }
     if (!canPerformAction('Approve')) {
-      alert('Role check error: Rejections require Check/Approve authorization privileges.');
+      triggerError('Role check error: Rejections require Check/Approve authorization privileges.');
       return;
     }
     if (!remarksText) {
-      alert('Rejection justification remarks are mandatory.');
+      triggerError('Rejection justification remarks are mandatory.');
       return;
     }
 
@@ -327,15 +335,15 @@ export default function VoucherValidationView({
   const handleRequestRevision = () => {
     if (!activeGrv) return;
     if (isTerminated) {
-      alert('Your user account is Terminated. Access denied.');
+      triggerError('Your user account is Terminated. Access denied.');
       return;
     }
     if (!canPerformAction('Check')) {
-      alert('Unauthorized role check error. Requesting corrections requires validation permission.');
+      triggerError('Unauthorized role check error. Requesting corrections requires validation permission.');
       return;
     }
     if (!remarksText) {
-      alert('Please explain the required modifications in the log remarks.');
+      triggerError('Please explain the required modifications in the log remarks.');
       return;
     }
 
@@ -354,14 +362,14 @@ export default function VoucherValidationView({
     setTimeout(() => setSuccessMessage(''), 4000);
   };
 
-  // Page 1: Revert verified status. Only available to super users and certain users
+  // Revert verified status. Only available to super users and certain users
   const handleRevertStatus = (voucher: BinCardTransaction) => {
     if (isTerminated) {
-      alert('Your user account is Terminated. Access denied.');
+      triggerError('Your user account is Terminated. Access denied.');
       return;
     }
     if (!isSuperUser && currentUserObj?.role !== 'Project Manager') {
-      alert('Reverting status is restricted strictly to Super Users and Project Managers.');
+      triggerError('Reverting status is restricted strictly to Super Users and Project Managers.');
       return;
     }
 
@@ -379,17 +387,17 @@ export default function VoucherValidationView({
     setTimeout(() => setSuccessMessage(''), 4000);
   };
 
-  // Page 1 Action: Delete completely
+  // Delete completely
   const handleDeleteVoucher = (voucherId: string) => {
     const v = localVouchers.find(tx => tx.id === voucherId);
     if (!v) return;
 
     if (isTerminated) {
-      alert('Your user account is Terminated. Access denied.');
+      triggerError('Your user account is Terminated. Access denied.');
       return;
     }
     if (!canPerformAction('Delete')) {
-      alert('Role check error: Your current scope lacks Delete authorization permissions.');
+      triggerError('Role check error: Your current scope lacks Delete authorization permissions.');
       return;
     }
 
@@ -403,7 +411,7 @@ export default function VoucherValidationView({
     }
   };
 
-  // Page 1 Trigger Refresh action above the table
+  // Trigger Refresh action above the table
   const handleRefreshTable = () => {
     setIsRefreshing(true);
     setTimeout(() => {
@@ -417,20 +425,20 @@ export default function VoucherValidationView({
     }, 600);
   };
 
-  // Page 2: Add dynamic line item in the Multi-Item registry form
+  // Add dynamic line item in the Multi-Item registry form
   const handleAddFormItem = () => {
     if (!formSelectedMatId) {
-      alert('Please select a material Code/Description.');
+      triggerError('Please select a material Code/Description.');
       return;
     }
     if (formQty <= 0) {
-      alert('Please enter a valid positive quantity.');
+      triggerError('Please enter a valid positive quantity.');
       return;
     }
 
     const duplicate = registrationItems.some(i => i.materialId === formSelectedMatId);
     if (duplicate) {
-      alert('This material is already in your registration checklist. Edit its quantity instead.');
+      triggerError('This material is already in your registration checklist. Edit its quantity instead.');
       return;
     }
 
@@ -450,21 +458,21 @@ export default function VoucherValidationView({
     setRegistrationItems(registrationItems.filter(i => i.id !== itemId));
   };
 
-  // Page 2 Registering multiple materials: Posts them to the menu table
+  // Registering multiple materials: Posts them to the menu table
   const handleRegisterVoucher = (e: React.FormEvent) => {
     e.preventDefault();
 
     if (isTerminated) {
-      alert('Your user account is Terminated. Access denied.');
+      triggerError('Your user account is Terminated. Access denied.');
       return;
     }
     if (!canPerformAction('Write')) {
-      alert('Role check error: Your current role scope lacks Write permissions to create vouchers.');
+      triggerError('Role check error: Your current role scope lacks Write permissions to create vouchers.');
       return;
     }
 
     if (registrationItems.length === 0) {
-      alert('Please add at least one material line item to the voucher.');
+      triggerError('Please add at least one material line item to the voucher.');
       return;
     }
 
@@ -801,63 +809,26 @@ export default function VoucherValidationView({
             <CheckCircle2 size={14} className="text-[#52c41a]" />
             <span>{successMessage}</span>
           </div>
-          <button onClick={() => setSuccessMessage('')} className="text-slate-450 hover:text-slate-700 cursor-pointer transition">
+          <button onClick={() => setSuccessMessage('')} className="bg-transparent border-0 text-slate-450 hover:text-slate-705 cursor-pointer p-0 transition">
             <X size={14} />
           </button>
         </div>
       )}
 
-      {/* 2. Sleek Ant Design Menu Sub-selector Tab Rows (Page 1 manual) */}
-      <Menu
-        mode="horizontal"
-        selectedKeys={[activeTab]}
-        onClick={(info) => setActiveTab(info.key as 'ledger' | 'register' | 'reports' | 'access')}
-        className="border-b border-[#f0f0f0] bg-white rounded-t-[6px] px-1 shadow-3xs mb-4"
-        items={[
-          {
-            key: 'ledger',
-            label: (
-              <div className="flex items-center gap-1.5">
-                <FileText size={14} className="inline-block" />
-                <span>Vouchers Ledger ({filteredGrvs.length})</span>
-              </div>
-            )
-          },
-          {
-            key: 'register',
-            label: (
-              <div className="flex items-center gap-1.5">
-                <Plus size={14} className="inline-block" />
-                <span>Voucher Registration Form</span>
-              </div>
-            )
-          },
-          {
-            key: 'reports',
-            label: (
-              <div className="flex items-center gap-1.5">
-                <FileDown size={14} className="inline-block" />
-                <span>Detailed & Summary Reports</span>
-              </div>
-            )
-          },
-          {
-            key: 'access',
-            label: (
-              <div className="flex items-center gap-1.5">
-                <Users size={14} className="inline-block" />
-                <span>Access Control Matrix (Roles)</span>
-              </div>
-            )
-          }
-        ]}
-      />
+      {errorMessage && (
+        <div className="p-3 bg-[#fff1f0] border border-[#ffccc7] text-[#ff4d4f] rounded-[6px] text-xs font-normal flex items-center justify-between shadow-3xs transition duration-300">
+          <div className="flex items-center gap-2 font-medium">
+            <AlertCircle size={14} className="text-[#ff4d4f]" />
+            <span>{errorMessage}</span>
+          </div>
+          <button onClick={() => setErrorMessage('')} className="bg-transparent border-0 text-slate-450 hover:text-slate-705 cursor-pointer p-0 transition">
+            <X size={14} />
+          </button>
+        </div>
+      )}
 
-      {/* 3. Tab Contents Layout */}
-
-      {/* TAB A: Voucher Ledger & 3-Way Reconciliation Audit */}
-      {activeTab === 'ledger' && (
-        <Layout style={{ background: 'transparent' }} className="flex flex-col lg:flex-row gap-5">
+      {/* 3. Tab Contents Layout: Voucher Ledger & 3-Way Reconciliation Audit */}
+      <Layout style={{ background: 'transparent' }} className="flex flex-col lg:flex-row gap-5">
           
           {/* A1. Voucher List Sidebar Converted to full Menu Table with Columns (Page 1) */}
           <Sider
@@ -1014,7 +985,7 @@ export default function VoucherValidationView({
                     <select
                       value={selectedPoId || ''}
                       onChange={(e) => setSelectedPoId(e.target.value || null)}
-                      className="h-8 px-2 bg-white border border-[#d9d9d9] hover:border-[#4096ff] rounded-[4px] font-medium text-[#1677ff] focus:border-[#4096ff] focus:outline-none cursor-pointer text-xs"
+                      className="h-8 pl-2 pr-7 bg-white border border-[#d9d9d9] hover:border-[#4096ff] focus:border-[#4096ff] rounded-[4px] font-medium text-[#1677ff] focus:outline-none cursor-pointer text-xs custom-select-arrow"
                     >
                       <option value="">-- Manual Selection --</option>
                       {purchaseOrders.map(po => (
@@ -1207,7 +1178,7 @@ export default function VoucherValidationView({
                           <select
                             value={activeUserId}
                             onChange={(e) => setActiveUserId(e.target.value)}
-                            className="h-full bg-transparent border-none text-[11px] font-medium focus:outline-none text-slate-750 cursor-pointer"
+                            className="h-full bg-transparent border-none text-[11px] font-medium focus:outline-none text-slate-750 cursor-pointer custom-select-arrow"
                           >
                             {systemUsers.map(u => (
                               <option key={u.id} value={u.id}>{u.name} ({u.role.split(' ')[0]})</option>
@@ -1258,16 +1229,10 @@ export default function VoucherValidationView({
                 <FileText size={44} className="text-slate-300 mb-4 animate-bounce" />
                 <h4 className="font-semibold text-[#262626] text-sm">3-Way Reconciliation View Desk</h4>
                 <p className="text-xs text-[#8c8c8c] mt-1 max-w-sm leading-normal">
-                  Select a registered voucher from the list index on the left, or open the "Voucher Registration Form" to register a dynamic multi-item receipt directly from physical deliveries.
+                  Select a registered voucher from the list index on the left to start checking, auditing, and approving 3-Way Reconciliation reports.
                 </p>
                 
                 <div className="mt-6 flex gap-2">
-                  <button 
-                    onClick={() => setActiveTab('register')}
-                    className="h-8 px-4 bg-[#1677ff] text-white text-xs font-medium rounded hover:bg-[#4096ff] transition cursor-pointer"
-                  >
-                    + Register New Voucher
-                  </button>
                   <button 
                     onClick={() => {
                       if (filteredGrvs.length > 0) {
@@ -1284,522 +1249,18 @@ export default function VoucherValidationView({
           </div>
 
         </Layout>
-      )}
 
-      {/* TAB B: Voucher Registration Form (Page 2) */}
-      {activeTab === 'register' && (
-        <form onSubmit={handleRegisterVoucher} className="bg-white border border-[#f0f0f0] rounded-[6px] shadow-sm p-6 text-left space-y-6">
-          
-          <div className="border-b border-[#f0f0f0] pb-3 flex justify-between items-center">
-            <div>
-              <h3 className="text-base font-semibold text-[#262626]">New Multiple Material Voucher Registration</h3>
-              <p className="text-xs text-[#8c8c8c] mt-0.5">Prepare Store Requisitions, Goods Received Vouchers, or Daily Report logs with multiple item assets.</p>
-            </div>
-          </div>
 
-          {/* Form Context Info Row */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1.5">* GC Date (Default Today)</label>
-              <input 
-                type="date"
-                required
-                value={newVoucherDate}
-                onChange={(e) => setNewVoucherDate(e.target.value)}
-                className="w-full h-8 px-2.5 bg-white border border-[#d9d9d9] hover:border-[#4096ff] focus:border-[#4096ff] focus:outline-none rounded-[4px] text-xs"
-              />
-            </div>
 
-            <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1.5">* Voucher Structure Type</label>
-              <select
-                value={newVoucherType}
-                onChange={(e) => setNewVoucherType(e.target.value as 'Goods Received' | 'Store Requisition' | 'Daily Report')}
-                className="w-full h-8 px-2.5 bg-white border border-[#d9d9d9] hover:border-[#4096ff] focus:border-[#4096ff] focus:outline-none rounded-[4px] text-xs cursor-pointer"
-              >
-                <option value="Goods Received">Goods Received Note (GRV)</option>
-                <option value="Store Requisition">Store Requisition (SIV)</option>
-                <option value="Daily Report">Daily Report Log</option>
-              </select>
-            </div>
 
-            <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1.5">Voucher Number (Sequential)</label>
-              <input 
-                type="text"
-                placeholder="e.g. GRV-5323 (Automatic if empty)"
-                value={newVoucherNo}
-                onChange={(e) => setNewVoucherNo(e.target.value)}
-                className="w-full h-8 px-2.5 bg-white border border-[#d9d9d9] hover:border-[#4096ff] focus:border-[#4096ff] focus:outline-none rounded-[4px] text-xs"
-              />
-            </div>
-          </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1.5">* Delivery Destination Store</label>
-              <select
-                value={newRequestedTo}
-                onChange={(e) => setNewRequestedTo(e.target.value)}
-                className="w-full h-8 px-2.5 bg-white border border-[#d9d9d9] hover:border-[#4096ff] focus:border-[#4096ff] focus:outline-none rounded-[4px] text-xs cursor-pointer"
-              >
-                {stores.map(st => (
-                  <option key={st.id} value={st.id}>{st.name} ({st.type})</option>
-                ))}
-              </select>
-            </div>
 
-            <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1.5">* Requested By Project</label>
-              <input 
-                type="text"
-                required
-                placeholder="e.g. Gotera Project, Bole Site Project"
-                value={newRequestedBy}
-                onChange={(e) => setNewRequestedBy(e.target.value)}
-                className="w-full h-8 px-2.5 bg-white border border-[#d9d9d9] hover:border-[#4096ff] focus:border-[#4096ff] focus:outline-none rounded-[4px] text-xs"
-              />
-            </div>
 
-            <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1.5">Pad Reference Number</label>
-              <input 
-                type="text"
-                placeholder="e.g. Ref-18679 / 20111"
-                value={newPadRef}
-                onChange={(e) => setNewPadRef(e.target.value)}
-                className="w-full h-8 px-2.5 bg-white border border-[#d9d9d9] hover:border-[#4096ff] focus:border-[#4096ff] focus:outline-none rounded-[4px] text-xs"
-              />
-            </div>
-          </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1.5">Prepared By (Logged Creator)</label>
-              <input 
-                type="text"
-                disabled
-                value={`${currentUserObj?.name} (Keeper)`}
-                className="w-full h-8 px-2.5 bg-slate-50 border border-[#d9d9d9] rounded-[4px] text-xs text-slate-500 font-medium"
-              />
-            </div>
 
-            <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1.5">* Checked By Officer</label>
-              <select
-                value={newCheckedById}
-                onChange={(e) => setNewCheckedById(e.target.value)}
-                className="w-full h-8 px-2.5 bg-white border border-[#d9d9d9] hover:border-[#4096ff] focus:border-[#4096ff] focus:outline-none rounded-[4px] text-xs cursor-pointer"
-              >
-                {systemUsers.filter(u => u.role === 'Stock Controller' || u.role === 'Warehouse Manager').map(u => (
-                  <option key={u.id} value={u.id}>{u.name} ({u.role})</option>
-                ))}
-              </select>
-            </div>
 
-            <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1.5">* Approved By Supervisor</label>
-              <select
-                value={newApprovedById}
-                onChange={(e) => setNewApprovedById(e.target.value)}
-                className="w-full h-8 px-2.5 bg-white border border-[#d9d9d9] hover:border-[#4096ff] focus:border-[#4096ff] focus:outline-none rounded-[4px] text-xs cursor-pointer"
-              >
-                {systemUsers.filter(u => u.role === 'Project Manager').map(u => (
-                  <option key={u.id} value={u.id}>{u.name} ({u.role})</option>
-                ))}
-              </select>
-            </div>
-          </div>
 
-          {/* Page 2: Multiple Material Registration Grid Sub-form */}
-          <div className="bg-[#fafafa] border border-[#f0f0f0] p-4 rounded-[6px] space-y-4">
-            <h4 className="text-xs font-semibold text-[#262626] uppercase tracking-wider flex items-center justify-between">
-              <span>Multiple Materials Registration Checklist (Grid)</span>
-              <span className="text-[10px] text-slate-400 font-normal normal-case">Add items below to create complex multi-item vouchers</span>
-            </h4>
-            
-            {/* Quick-add row */}
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
-              <div className="md:col-span-5">
-                <span className="block text-[11px] text-slate-550 mb-1">Select Material Item & Code</span>
-                <select
-                  value={formSelectedMatId}
-                  onChange={(e) => setFormSelectedMatId(e.target.value)}
-                  className="w-full h-8 px-2 bg-white border border-[#d9d9d9] hover:border-[#4096ff] focus:outline-none rounded text-xs cursor-pointer"
-                >
-                  {materials.map(m => (
-                    <option key={m.id} value={m.id}>{m.code} - {m.description} ({m.unit})</option>
-                  ))}
-                </select>
-              </div>
 
-              <div className="md:col-span-3">
-                <span className="block text-[11px] text-slate-550 mb-1">Received Quantity</span>
-                <input 
-                  type="number"
-                  placeholder="e.g. 500"
-                  value={formQty || ''}
-                  onChange={(e) => setFormQty(Number(e.target.value))}
-                  className="w-full h-8 px-2.5 bg-white border border-[#d9d9d9] hover:border-[#4096ff] focus:outline-none rounded text-xs"
-                />
-              </div>
-
-              <div className="md:col-span-3">
-                <span className="block text-[11px] text-slate-550 mb-1">Details / Specification</span>
-                <input 
-                  type="text"
-                  placeholder="e.g. Concrete mix/batch no"
-                  value={formSpec}
-                  onChange={(e) => setFormSpec(e.target.value)}
-                  className="w-full h-8 px-2.5 bg-white border border-[#d9d9d9] hover:border-[#4096ff] focus:outline-none rounded text-xs"
-                />
-              </div>
-
-              <div className="md:col-span-1 font-sans">
-                <Button
-                  type="primary"
-                  onClick={handleAddFormItem}
-                  icon={<PlusOutlined />}
-                  className="w-full h-8 flex items-center justify-center font-medium bg-[#1677ff]"
-                />
-              </div>
-            </div>
-
-            {/* List spreadsheet representation */}
-            <div className="border border-[#f0f0f0] rounded-[6px] overflow-hidden bg-white">
-              <Table
-                dataSource={registrationItems.map(item => ({ ...item, key: item.id }))}
-                columns={registrationTableColumns}
-                pagination={false}
-                size="small"
-                locale={{
-                  emptyText: 'No material items added yet. Choose a material above and click the invite plus button.'
-                }}
-              />
-            </div>
-
-          </div>
-
-          <div className="flex justify-end items-center bg-[#fafafa] p-3 rounded-[6px] border text-xs gap-3">
-            <div className="flex gap-2.5 shrink-0">
-              <Button
-                type="default"
-                onClick={() => {
-                  if (window.confirm('Discard current voucher progress?')) {
-                    setRegistrationItems([]);
-                    setNewVoucherNo('');
-                    setNewPadRef('');
-                  }
-                }}
-                className="h-9 px-4 text-xs font-medium text-[#595959]"
-              >
-                Clear Form
-              </Button>
-              
-              <Button
-                type="primary"
-                htmlType="submit"
-                className="h-9 px-6 text-xs font-semibold bg-[#1677ff]"
-              >
-                Register & Post Voucher
-              </Button>
-            </div>
-          </div>
-
-        </form>
-      )}
-
-      {/* TAB C: Detailed or Summary Reports (Page 3) */}
-      {activeTab === 'reports' && (
-        <div className="bg-white border border-[#f0f0f0] rounded-[6px] p-6 shadow-sm space-y-6">
-          
-          <div className="border-b border-[#f0f0f0] pb-3 flex flex-wrap justify-between items-center gap-3 text-left">
-            <div>
-              <h3 className="text-base font-semibold text-[#262626]">ConDigital Production & Material Reserves Report Desk</h3>
-              <p className="text-xs text-[#8c8c8c] mt-0.5">Generate, audit, and export real-time movements, balance histories, and reconciliation details.</p>
-            </div>
-
-            {/* Simulated tools matching ConDigital's screenshot header */}
-            <div className="flex flex-wrap items-center gap-2">
-              <button
-                onClick={() => triggerSimulationExport('Excel')}
-                className="h-8 px-3.5 bg-[#f6ffed] border border-[#b7eb8f] text-[#389e0d] hover:bg-[#eaf8dd] transition rounded text-xs font-medium flex items-center gap-1 cursor-pointer"
-                title="Download Excel spreadsheet"
-              >
-                <FileText size={12} />
-                <span>Export to Excel</span>
-              </button>
-
-              <button
-                onClick={() => triggerSimulationExport('PDF')}
-                className="h-8 px-3.5 bg-red-50 border border-red-200 text-red-650 hover:bg-[#fff1f0] transition rounded text-xs font-medium flex items-center gap-1 cursor-pointer"
-                title="Download non-editable PDF presentation"
-              >
-                <FileDown size={12} />
-                <span>Export to PDF</span>
-              </button>
-
-              <button
-                onClick={handleSimulatePrint}
-                className="h-8 px-3.5 bg-slate-50 border border-[#d9d9d9] text-[#262626] hover:bg-slate-100 rounded text-xs font-medium flex items-center gap-1 cursor-pointer"
-                title="Print report layout safely"
-              >
-                <Printer size={12} />
-                <span>Print Report</span>
-              </button>
-
-              <span className="h-5 w-px bg-slate-205"></span>
-
-              <button
-                onClick={handleRefreshTable}
-                className="h-8 w-8 bg-[#1677ff] text-white rounded hover:bg-[#4096ff] flex items-center justify-center cursor-pointer transition"
-                title="Synchronize formulas"
-              >
-                <RefreshCw size={12} className={isRefreshing ? 'animate-spin' : ''} />
-              </button>
-            </div>
-          </div>
-
-          {/* Report configuration filters */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 bg-[#fafafa] p-4 rounded-[6px] border text-left text-xs">
-            <div>
-              <label className="block text-slate-500 font-semibold mb-1">* Report Selection</label>
-              <select
-                value={reportType}
-                onChange={(e) => setReportType(e.target.value as 'Bin Card' | 'Stock Movement' | 'Monthly Report')}
-                className="w-full h-8 px-2 bg-white border rounded border-[#d9d9d9] outline-none font-medium text-slate-700 cursor-pointer"
-              >
-                <option value="Bin Card">Bin Card Movement Ledger</option>
-                <option value="Stock Movement">Stock Movement Balance report</option>
-                <option value="Monthly Report">Monthly reconciliation audit summary</option>
-              </select>
-            </div>
-
-            <div className="md:col-span-2">
-              <label className="block text-slate-500 font-semibold mb-1">Search Material / Voucher Number</label>
-              <div className="relative">
-                <input 
-                  type="text"
-                  placeholder="e.g. Cement PPC, GRV-5323, Pad-22472"
-                  value={reportSearchQuery}
-                  onChange={(e) => setReportSearchQuery(e.target.value)}
-                  className="w-full h-8 pl-8 pr-2 bg-white border rounded border-[#d9d9d9] outline-none text-slate-800"
-                />
-                <span className="absolute inset-y-0 left-2.5 flex items-center text-slate-400">
-                  <Search size={12} />
-                </span>
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-slate-500 font-semibold mb-1">Duration Selector Filter</label>
-              <div className="flex gap-1">
-                <input 
-                  type="date"
-                  value={durationStart}
-                  onChange={(e) => setDurationStart(e.target.value)}
-                  className="flex-1 min-w-0 h-8 px-1 text-xs border rounded outline-none"
-                />
-                <span className="self-center text-slate-400">to</span>
-                <input 
-                  type="date"
-                  value={durationEnd}
-                  onChange={(e) => setDurationEnd(e.target.value)}
-                  className="flex-1 min-w-0 h-8 px-1 text-xs border rounded outline-none"
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Big Reports Grid Table */}
-          <div className="border border-[#f0f0f0] rounded-[6px] overflow-hidden bg-white font-sans">
-            <Table
-              dataSource={localVouchers.filter(tx => {
-                const matObj = materials.find(m => m.id === tx.materialId);
-                const desc = matObj ? matObj.description.toLowerCase() : '';
-                const code = tx.grnSivNo.toLowerCase();
-                const q = reportSearchQuery.toLowerCase().trim();
-
-                let dateCheck = true;
-                if (durationStart) dateCheck = dateCheck && tx.date >= durationStart;
-                if (durationEnd) dateCheck = dateCheck && tx.date <= durationEnd;
-
-                return (desc.includes(q) || code.includes(q) || (tx.remark || '').toLowerCase().includes(q)) && dateCheck;
-              }).map(t => ({ ...t, key: t.id }))}
-              columns={reportTableColumns}
-              pagination={{
-                defaultPageSize: 10,
-                size: 'small',
-                showSizeChanger: true,
-                showTotal: (total) => `${total} records shown`
-              }}
-              className="custom-antd-table font-sans text-xs"
-            />
-          </div>
-
-          {/* Tab footer content spacer */}
-
-        </div>
-      )}
-
-      {/* TAB D: Access Control Matrix (Roles) */}
-      {activeTab === 'access' && (
-        <div className="bg-white border border-[#f0f0f0] rounded-[6px] p-6 shadow-sm space-y-6 text-left">
-          
-          <div className="border-b border-[#f0f0f0] pb-3">
-            <h3 className="text-base font-semibold text-[#262626]">Access Control Settings & Company User Matrix</h3>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-12 gap-5">
-            
-            {/* Control Column Selector */}
-            <div className="md:col-span-4 bg-[#fafafa] p-4 rounded-[6px] border space-y-4">
-              <h4 className="text-xs font-bold uppercase tracking-wider text-[#262626]">User Account Settings</h4>
-              
-              <div className="space-y-3">
-                
-                {/* Switch Actor */}
-                <div>
-                  <label className="block text-xs font-medium text-slate-600 mb-1">Simulated Session User</label>
-                  <select
-                    value={activeUserId}
-                    onChange={(e) => setActiveUserId(e.target.value)}
-                    className="w-full text-xs h-8 px-2 bg-white border border-[#d9d9d9] rounded cursor-pointer text-[#1677ff] font-semibold"
-                  >
-                    {systemUsers.map(u => (
-                      <option key={u.id} value={u.id}>
-                        {u.name} ({u.role})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* User Privilege classification */}
-                <div className="bg-white p-3 rounded border space-y-2">
-                  <span className="text-[11px] text-[#8c8c8c] uppercase font-bold tracking-wider block">Access Category</span>
-                  
-                  <div className="flex gap-4 text-xs font-medium">
-                    <label className="flex items-center gap-1.5 cursor-pointer">
-                      <input 
-                        type="radio" 
-                        name="priv" 
-                        checked={!isSuperUser} 
-                        onChange={() => setIsSuperUser(false)}
-                      />
-                      <span>Normal User</span>
-                    </label>
-
-                    <label className="flex items-center gap-1.5 cursor-pointer">
-                      <input 
-                        type="radio" 
-                        name="priv" 
-                        checked={isSuperUser} 
-                        onChange={() => setIsSuperUser(true)}
-                      />
-                      <span className="text-emerald-600">Super User</span>
-                    </label>
-                  </div>
-                </div>
-
-                {/* Status Toggle */}
-                <div className="bg-white p-3 rounded border space-y-2">
-                  <span className="text-[11px] text-[#595959] uppercase font-bold tracking-wider block">Activation Status</span>
-                  
-                  <div className="flex gap-2">
-                    {systemUsers.map(u => {
-                      const status = userStatuses[u.id] || 'Activated';
-                      const isSelf = u.id === activeUserId;
-                      return (
-                        <div key={u.id} className="flex items-center justify-between text-xs w-full pb-1 border-b last:border-0">
-                          <span className={`${isSelf ? 'font-bold text-[#1677ff]' : 'text-[#262626]'}`}>{u.name.split(' ')[0]}</span>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setUserStatuses(prev => ({
-                                ...prev,
-                                [u.id]: status === 'Activated' ? 'Terminated' : 'Activated'
-                              }));
-                            }}
-                            className={`px-1.5 py-0.5 rounded text-[10px] font-semibold cursor-pointer transition ${
-                              status === 'Activated'
-                                ? 'bg-[#f6ffed] text-[#52c41a] border border-[#b7eb8f]'
-                                : 'bg-[#fff1f0] text-[#ff4d4f] border border-[#ffccc7]'
-                            }`}
-                          >
-                            {status}
-                          </button>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-
-              </div>
-            </div>
-
-            {/* Matrix Columns Guidelines table */}
-            <div className="md:col-span-8 space-y-3 text-left">
-              <h4 className="text-xs font-bold uppercase tracking-wider text-[#262626]">Privileges Access Rights Matrix</h4>
-              
-              <div className="border border-[#f0f0f0] rounded-[6px] overflow-hidden">
-                <table className="w-full text-left text-xs">
-                  <thead>
-                    <tr className="bg-[#f5f5f5] text-[#262626] border-b font-medium">
-                      <th className="p-2.5">Role Designation</th>
-                      <th className="p-2.5 text-center">Read Only</th>
-                      <th className="p-2.5 text-center">Write</th>
-                      <th className="p-2.5 text-center">Edit</th>
-                      <th className="p-2.5 text-center">Delete</th>
-                      <th className="p-2.5 text-center">Check</th>
-                      <th className="p-2.5 text-center">Approve</th>
-                      <th className="p-2.5 text-center">Full Access</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-[#f0f0f0]">
-                    {Object.keys(rolePermissions).map((role) => {
-                      const rights = rolePermissions[role];
-                      const isMatchingActive = currentUserObj?.role === role;
-                      
-                      return (
-                        <tr key={role} className={`transition hover:bg-[#fafafa] ${isMatchingActive ? 'bg-amber-50/40 font-semibold' : ''}`}>
-                          <td className="p-2.5 font-medium text-slate-800">
-                            {role} {isMatchingActive && <span className="text-[#1677ff] text-[10px] italic">(Active)</span>}
-                          </td>
-                          {['Read Only', 'Write', 'Edit', 'Delete', 'Check', 'Approve', 'Full Access'].map((act) => {
-                            const active = rights.includes(act);
-                            return (
-                              <td key={act} className="p-2.5 text-center">
-                                <input
-                                  type="checkbox"
-                                  checked={active}
-                                  onChange={(e) => {
-                                    const checked = e.target.checked;
-                                    setRolePermissions(prev => {
-                                      const oldRights = prev[role] || [];
-                                      const newRights = checked 
-                                        ? [...oldRights, act] 
-                                        : oldRights.filter(r => r !== act);
-                                      return { ...prev, [role]: newRights };
-                                    });
-                                  }}
-                                  className="w-3.5 h-3.5 accent-[#1677ff] cursor-pointer"
-                                />
-                              </td>
-                            );
-                          })}
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-
-            </div>
-
-          </div>
-
-        </div>
-      )}
 
     </div>
   );

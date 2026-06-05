@@ -77,7 +77,7 @@ export default function SupplierView({
           className="h-9 px-4 bg-[#033096] hover:bg-blue-800 text-white rounded-lg text-xs font-bold transition flex items-center space-x-2 cursor-pointer shadow-down shadow-blue-900/10"
         >
           <Plus size={14} strokeWidth={2.5} />
-          <span>Register Supplier</span>
+          <span>+ Register Supplier</span>
         </button>
       </div>
 
