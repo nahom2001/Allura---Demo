@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Layout, Button, Table, Dropdown } from 'antd';
+import { Layout, Button, Table, Dropdown, DatePicker } from 'antd';
+import dayjs from 'dayjs';
 import { PlusOutlined, EditOutlined, DeleteOutlined, MoreOutlined } from '@ant-design/icons';
 import { 
   Plus, 
@@ -244,6 +245,8 @@ export default function App() {
   const [storeSearchQuery, setStoreSearchQuery] = useState('');
   const [materialSearchQuery, setMaterialSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [materialStartDate, setMaterialStartDate] = useState<string>('');
+  const [materialEndDate, setMaterialEndDate] = useState<string>('');
   const [activeSubTab, setActiveSubTab] = useState<string>('Material');
 
   // Modals state
@@ -906,7 +909,15 @@ export default function App() {
       return false;
     }
 
-    // 3. Search query filter
+    // 3. Filter by date-range
+    if (materialStartDate && material.createdAt < materialStartDate) {
+      return false;
+    }
+    if (materialEndDate && material.createdAt > materialEndDate) {
+      return false;
+    }
+
+    // 4. Search query filter
     const q = materialSearchQuery.toLowerCase();
     const storeObj = stores.find(s => s.id === material.storeId);
     const storeLabel = storeObj ? storeObj.name.toLowerCase() : '';
@@ -1276,6 +1287,27 @@ export default function App() {
                 
                 {/* Search input and dropdown category filter */}
                 <div className="flex-1 flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                  {/* Material Registration Date range filter */}
+                  <div className="flex items-center gap-1 h-[28px]">
+                    <DatePicker
+                      placeholder="Start Date"
+                      size="small"
+                      value={materialStartDate ? dayjs(materialStartDate) : null}
+                      onChange={(date) => setMaterialStartDate(date ? date.format('YYYY-MM-DD') : '')}
+                      className="h-[28px] text-[11px] font-semibold w-[105px] font-sans text-slate-700 bg-white rounded"
+                      allowClear
+                    />
+                    <span className="text-slate-300 font-medium select-none text-[11px]">→</span>
+                    <DatePicker
+                      placeholder="End Date"
+                      size="small"
+                      value={materialEndDate ? dayjs(materialEndDate) : null}
+                      onChange={(date) => setMaterialEndDate(date ? date.format('YYYY-MM-DD') : '')}
+                      className="h-[28px] text-[11px] font-semibold w-[105px] font-sans text-slate-700 bg-white rounded"
+                      allowClear
+                    />
+                  </div>
+
                   <div className="relative flex-1 max-w-sm">
                     <input
                       type="text"

@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import { Plus, Search, Trash2, Edit3, X, User } from 'lucide-react';
+import { DatePicker } from 'antd';
+import dayjs from 'dayjs';
 import { Supplier } from '../types';
 
 interface SupplierViewProps {
@@ -15,6 +17,8 @@ export default function SupplierView({
 }: SupplierViewProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
   
   // Registration Form Fields
   const [name, setName] = useState('');
@@ -49,9 +53,19 @@ export default function SupplierView({
 
   const filtered = suppliers.filter(s => {
     const q = searchQuery.toLowerCase();
-    return s.name.toLowerCase().includes(q) || 
+    const matchesSearch = s.name.toLowerCase().includes(q) || 
            (s.tin && s.tin.toLowerCase().includes(q)) ||
            (s.address && s.address.toLowerCase().includes(q));
+
+    let matchesDate = true;
+    if (startDate) {
+      matchesDate = matchesDate && s.createdAt >= startDate;
+    }
+    if (endDate) {
+      matchesDate = matchesDate && s.createdAt <= endDate;
+    }
+
+    return matchesSearch && matchesDate;
   });
 
   return (
@@ -59,22 +73,43 @@ export default function SupplierView({
       
       {/* Top action bar */}
       <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-3xs flex flex-col sm:flex-row gap-4 items-stretch sm:items-center justify-between">
-        <div className="relative max-w-xs w-full">
-          <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400 pointer-events-none">
-            <Search size={14} />
-          </span>
-          <input
-            type="text"
-            placeholder="Search suppliers..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-9 pr-3 h-9 bg-white border border-slate-200 rounded-lg text-xs font-semibold placeholder-slate-450 focus:outline-none focus:border-blue-500 transition"
-          />
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 flex-1">
+          {/* Registration Date range filter */}
+          <div className="flex items-center gap-1.5 h-9">
+            <DatePicker
+              placeholder="Start Date"
+              value={startDate ? dayjs(startDate) : null}
+              onChange={(date) => setStartDate(date ? date.format('YYYY-MM-DD') : '')}
+              className="h-9 text-xs font-semibold w-32"
+              allowClear
+            />
+            <span className="text-slate-300 font-medium select-none">→</span>
+            <DatePicker
+              placeholder="End Date"
+              value={endDate ? dayjs(endDate) : null}
+              onChange={(date) => setEndDate(date ? date.format('YYYY-MM-DD') : '')}
+              className="h-9 text-xs font-semibold w-32"
+              allowClear
+            />
+          </div>
+
+          <div className="relative max-w-xs w-full">
+            <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400 pointer-events-none">
+              <Search size={14} />
+            </span>
+            <input
+              type="text"
+              placeholder="Search suppliers..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-9 pr-3 h-9 bg-white border border-slate-200 rounded-lg text-xs font-semibold placeholder-slate-450 focus:outline-none focus:border-blue-500 transition"
+            />
+          </div>
         </div>
 
         <button
           onClick={handleOpenRegister}
-          className="h-9 px-4 bg-[#033096] hover:bg-blue-800 text-white rounded-lg text-xs font-bold transition flex items-center space-x-2 cursor-pointer shadow-down shadow-blue-900/10"
+          className="h-9 px-4 bg-[#033096] hover:bg-blue-800 text-white rounded-lg text-xs font-bold transition flex items-center space-x-2 cursor-pointer shadow-down shadow-blue-900/10 shrink-0"
         >
           <Plus size={14} strokeWidth={2.5} />
           <span>+ Register Supplier</span>

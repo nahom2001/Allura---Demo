@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Table, Button, Dropdown, Menu, Tooltip, Form, Input, Select, InputNumber, Modal } from 'antd';
+import { Table, Button, Dropdown, Menu, Tooltip, Form, Input, Select, InputNumber, Modal, DatePicker } from 'antd';
+import dayjs from 'dayjs';
 import { PlusOutlined, DeleteOutlined, SyncOutlined, MoreOutlined, EyeOutlined, EditOutlined, PrinterOutlined, ShareAltOutlined } from '@ant-design/icons';
 import { 
   Check, 
@@ -57,6 +58,8 @@ export default function InterStoreTransferView({
   const [statusFilter, setStatusFilter] = useState<'All' | 'Draft' | 'Completed'>('All');
   const [sortField, setSortField] = useState<'date' | 'transferNo'>('date');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
 
   // New/Edit Voucher Form State
   const [formDate, setFormDate] = useState('');
@@ -329,7 +332,15 @@ export default function InterStoreTransferView({
         statusMatches = tx.status === statusFilter;
       }
 
-      return searchMatches && fromStoreMatches && toStoreMatches && statusMatches;
+      let dateMatches = true;
+      if (startDate) {
+        dateMatches = dateMatches && tx.date >= startDate;
+      }
+      if (endDate) {
+        dateMatches = dateMatches && tx.date <= endDate;
+      }
+
+      return searchMatches && fromStoreMatches && toStoreMatches && statusMatches && dateMatches;
     }).sort((a, b) => {
       let comparison = 0;
       if (sortField === 'transferNo') {
@@ -339,7 +350,7 @@ export default function InterStoreTransferView({
       }
       return sortOrder === 'desc' ? -comparison : comparison;
     });
-  }, [transfers, searchText, fromStoreFilter, toStoreFilter, statusFilter, sortField, sortOrder, stores]);
+  }, [transfers, searchText, fromStoreFilter, toStoreFilter, statusFilter, sortField, sortOrder, stores, startDate, endDate]);
 
   const activeTransfer = transfers.find(tx => tx.id === selectedTransferId) || null;
   const activeFromStore = activeTransfer ? stores.find(s => s.id === activeTransfer.fromStoreId) : null;
@@ -578,7 +589,7 @@ export default function InterStoreTransferView({
                       {formItems.length === 0 ? (
                         <tr>
                           <td colSpan={9} className="p-8 text-center text-slate-400 italic">
-                            No material transfer rows specified. Click "Add Material" below to append.
+                            No material transfer rows specified. Click "+ Add Material" below to append.
                           </td>
                         </tr>
                       ) : (
@@ -670,7 +681,7 @@ export default function InterStoreTransferView({
                     className="h-8 px-3.5 bg-white border border-[#d9d9d9] hover:border-[#033096] text-[#033096] rounded font-bold text-xs shadow-3xs flex items-center gap-1 transition select-none cursor-pointer"
                   >
                     <PlusOutlined style={{ strokeWidth: 2.5 }} />
-                    <span>Add Material Line</span>
+                    <span>+ Add Material Line</span>
                   </button>
                 </div>
               </div>
@@ -787,8 +798,27 @@ export default function InterStoreTransferView({
             </div>
 
             {/* Quick Filters panel */}
-            <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 py-3 border-t border-[#f5f5f5]">
+            <div className="grid grid-cols-1 sm:grid-cols-5 gap-3 py-3 border-t border-[#f5f5f5]">
               
+              {/* Start Date to End Date filter */}
+              <div className="flex items-center gap-1.5 h-8">
+                <DatePicker
+                  placeholder="Start Date"
+                  value={startDate ? dayjs(startDate) : null}
+                  onChange={(date) => setStartDate(date ? date.format('YYYY-MM-DD') : '')}
+                  className="h-8 text-xs font-semibold w-28"
+                  allowClear
+                />
+                <span className="text-slate-300 font-medium select-none">→</span>
+                <DatePicker
+                  placeholder="End Date"
+                  value={endDate ? dayjs(endDate) : null}
+                  onChange={(date) => setEndDate(date ? date.format('YYYY-MM-DD') : '')}
+                  className="h-8 text-xs font-semibold w-28"
+                  allowClear
+                />
+              </div>
+
               {/* Keyword query Search */}
               <div className="relative">
                 <span className="absolute inset-y-0 left-0 flex items-center pl-2.5 text-slate-400 pointer-events-none">
@@ -907,7 +937,7 @@ export default function InterStoreTransferView({
 
                           {/* Share button */}
                           <td className="p-4 text-center">
-                            <Tooltip title="Copy voucher details to share">
+                            <Tooltip title="Copy">
                               <button 
                                 onClick={() => handleCopyShareLink(tx)}
                                 className="p-1.5 bg-transparent border-0 text-[#8B879B] hover:text-[#033096] rounded hover:bg-slate-100 cursor-pointer transition active:scale-90"

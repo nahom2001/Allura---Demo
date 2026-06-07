@@ -27,6 +27,7 @@ export default function ConDigitalHeader({ currentTab, setCurrentTab, activeSubT
     'Supplier',
     'Store Requisition',
     'Purchase Requisition',
+    'PR Purchaser',
     'Purchase Evaluation',
     'Purchase Order',
     'Voucher Validation',

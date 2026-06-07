@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react';
+import { DatePicker } from 'antd';
+import dayjs from 'dayjs';
 import { 
   Plus, 
   Search, 
@@ -253,6 +255,25 @@ export default function PurchaseEvaluationView({
         
         {/* Search & Pending toggle checkbox */}
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 flex-1">
+          {/* Start Date to End Date filter */}
+          <div className="flex items-center gap-1.5 h-9">
+            <DatePicker
+              placeholder="Start Date"
+              value={startDate ? dayjs(startDate) : null}
+              onChange={(date) => setStartDate(date ? date.format('YYYY-MM-DD') : '')}
+              className="h-9 text-xs font-semibold w-32 font-sans"
+              allowClear
+            />
+            <span className="text-slate-300 font-medium select-none text-xs">→</span>
+            <DatePicker
+              placeholder="End Date"
+              value={endDate ? dayjs(endDate) : null}
+              onChange={(date) => setEndDate(date ? date.format('YYYY-MM-DD') : '')}
+              className="h-9 text-xs font-semibold w-32 font-sans"
+              allowClear
+            />
+          </div>
+
           <div className="relative max-w-xs w-full">
             <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400 pointer-events-none">
               <Search size={14} />
@@ -264,25 +285,6 @@ export default function PurchaseEvaluationView({
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full pl-9 pr-3 h-9 bg-white border border-slate-200 rounded-lg text-xs font-semibold placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/10 transition"
               id="search-evaluation-material"
-            />
-          </div>
-
-          {/* Start Date to End Date filter */}
-          <div className="flex items-center space-x-1.5 border border-slate-200 rounded-lg bg-white px-3 h-9 text-slate-600 shadow-3xs text-xs font-semibold">
-            <input
-              type="date"
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-              className="outline-none bg-transparent cursor-pointer text-slate-700"
-              title="Start Date"
-            />
-            <span className="text-slate-300">→</span>
-            <input
-              type="date"
-              value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
-              className="outline-none bg-transparent cursor-pointer text-slate-700"
-              title="End Date"
             />
           </div>
 

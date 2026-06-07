@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Layout, Button, Table, Dropdown, Menu, Tooltip } from 'antd';
+import { Layout, Button, Table, Dropdown, Menu, Tooltip, DatePicker } from 'antd';
+import dayjs from 'dayjs';
 import { PlusOutlined, DeleteOutlined, EyeOutlined, SyncOutlined, MoreOutlined } from '@ant-design/icons';
 import { 
   Check, 
@@ -569,6 +570,31 @@ export default function VoucherValidationView({
                 </button>
               </div>
 
+              <div className="grid grid-cols-2 gap-2 text-[11px]">
+                <div>
+                  <span className="text-slate-400 block mb-0.5 font-medium">Start Date</span>
+                  <DatePicker
+                    placeholder="Start Date"
+                    size="small"
+                    value={durationStart ? dayjs(durationStart) : null}
+                    onChange={(date) => setDurationStart(date ? date.format('YYYY-MM-DD') : '')}
+                    className="w-full text-xs h-7 bg-white font-sans font-semibold text-slate-700 rounded"
+                    allowClear
+                  />
+                </div>
+                <div>
+                  <span className="text-slate-400 block mb-0.5 font-medium">End Date</span>
+                  <DatePicker
+                    placeholder="End Date"
+                    size="small"
+                    value={durationEnd ? dayjs(durationEnd) : null}
+                    onChange={(date) => setDurationEnd(date ? date.format('YYYY-MM-DD') : '')}
+                    className="w-full text-xs h-7 bg-white font-sans font-semibold text-slate-700 rounded"
+                    allowClear
+                  />
+                </div>
+              </div>
+
               <div className="relative">
                 <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400 pointer-events-none">
                   <Search size={12} />
@@ -580,27 +606,6 @@ export default function VoucherValidationView({
                   placeholder="Search raw description, GRV No, Plate..."
                   className="w-full h-8 pl-8 pr-3 text-xs text-[#262626] bg-white border border-[#d9d9d9] rounded-[4px] hover:border-[#4096ff] focus:border-[#4096ff] focus:shadow-[0_0_0_2px_rgba(22,119,255,0.08)] outline-none transition duration-200"
                 />
-              </div>
-
-              <div className="grid grid-cols-2 gap-2 text-[11px]">
-                <div>
-                  <span className="text-slate-400 block mb-0.5 font-medium">Start Date</span>
-                  <input 
-                    type="date"
-                    value={durationStart}
-                    onChange={(e) => setDurationStart(e.target.value)}
-                    className="w-full text-xs h-7 px-1.5 border border-[#d9d9d9] rounded hover:border-[#4096ff] focus:outline-none bg-white"
-                  />
-                </div>
-                <div>
-                  <span className="text-slate-400 block mb-0.5 font-medium">End Date</span>
-                  <input 
-                    type="date"
-                    value={durationEnd}
-                    onChange={(e) => setDurationEnd(e.target.value)}
-                    className="w-full text-xs h-7 px-1.5 border border-[#d9d9d9] rounded hover:border-[#4096ff] focus:outline-none bg-white"
-                  />
-                </div>
               </div>
 
               <div className="flex items-center justify-between gap-2 text-[11px] pt-1">

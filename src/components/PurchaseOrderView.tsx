@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react';
+import { DatePicker } from 'antd';
+import dayjs from 'dayjs';
 import { 
   Printer, 
   Trash2, 
@@ -326,8 +328,27 @@ export default function PurchaseOrderView({
       {/* HEADER BAR CONTROLLER */}
       <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-3xs flex flex-col lg:flex-row gap-4 items-stretch lg:items-center justify-between no-print">
         
-        {/* Left Search input */}
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 grow max-w-2xl">
+        {/* Left Side: Date Filters and Search */}
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 grow max-w-4xl">
+          {/* Back date limits */}
+          <div className="flex items-center gap-1.5 shrink-0">
+            <DatePicker
+              placeholder="Start Date"
+              value={startDate ? dayjs(startDate) : null}
+              onChange={(date) => setStartDate(date ? date.format('YYYY-MM-DD') : '')}
+              className="h-9 text-xs font-semibold w-32 font-sans"
+              allowClear
+            />
+            <span className="text-slate-300 font-medium select-none text-xs">to</span>
+            <DatePicker
+              placeholder="End Date"
+              value={endDate ? dayjs(endDate) : null}
+              onChange={(date) => setEndDate(date ? date.format('YYYY-MM-DD') : '')}
+              className="h-9 text-xs font-semibold w-32 font-sans"
+              allowClear
+            />
+          </div>
+
           <div className="relative grow">
             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
               <Search size={14} />
@@ -345,7 +366,7 @@ export default function PurchaseOrderView({
           {/* Quick requested type filter toggle */}
           <button
             onClick={() => setShowOnlyRequested(!showOnlyRequested)}
-            className={`h-9 px-4 rounded-lg border text-xs font-bold transition flex items-center gap-1.5 cursor-pointer select-none ${
+            className={`h-9 px-4 rounded-lg border text-xs font-bold transition flex items-center gap-1.5 cursor-pointer select-none shrink-0 ${
               showOnlyRequested
                 ? 'bg-blue-50 border-blue-200 text-[#033096]'
                 : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
@@ -359,35 +380,6 @@ export default function PurchaseOrderView({
         {/* Action Controls right */}
         <div className="flex items-center gap-2 shrink-0">
           
-          {/* Back date limits */}
-          <div className="flex items-center space-x-1.5">
-            <input
-              type="date"
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-              className="h-9 px-2.5 bg-white border border-slate-200 rounded-lg text-[10px] font-bold text-slate-600 focus:outline-none shadow-3xs"
-              title="Start Date"
-            />
-            <span className="text-slate-300 text-xs">to</span>
-            <input
-              type="date"
-              value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
-              className="h-9 px-2.5 bg-white border border-slate-200 rounded-lg text-[10px] font-bold text-slate-600 focus:outline-none shadow-3xs"
-              title="End Date"
-            />
-            
-            {(startDate || endDate) && (
-              <button 
-                onClick={() => { setStartDate(''); setEndDate(''); }} 
-                className="p-2 text-slate-400 hover:text-red-500 hover:bg-slate-100 rounded-lg transition"
-                title="Clear date filter"
-              >
-                <X size={13} />
-              </button>
-            )}
-          </div>
-
           <span className="h-4 w-px bg-slate-200 mx-1"></span>
 
           {/* New Purchase Order registration button */}
