@@ -31,3 +31,62 @@ body {
   background: #94a3b8;
 }
 
+/* Custom styled dropdown select arrow matching Ant Design */
+.custom-select-arrow {
+  background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2012%2012%22%20width%3D%2212%22%20height%3D%2212%22%3E%3Cpath%20fill%3D%22%238c8c8c%22%20d%3D%22M6%208.5L2.5%205h7L6%208.5z%22%2F%3E%3C%2Fsvg%3E");
+  background-size: 11px 11px;
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  appearance: none;
+  -webkit-appearance: none;
+  padding-right: 28px;
+}
+
+/* Pristine Print Stylesheets for professional physical voucher signoff */
+@media print {
+  body {
+    background-color: white !important;
+    color: black !important;
+  }
+  .no-print, 
+  #condigital-header,
+  header,
+  footer,
+  aside,
+  button,
+  .ant-btn,
+  select,
+  input {
+    display: none !important;
+  }
+  #main-app {
+    background: white !important;
+    padding: 0 !important;
+  }
+  #app-body {
+    padding: 0 !important;
+    margin: 0 !important;
+    max-width: 100% !important;
+    width: 100% !important;
+  }
+  #ist-workspace {
+    margin: 0 !important;
+    padding: 0 !important;
+    border: none !important;
+  }
+  #print-sheet-wrapper {
+    overflow: visible !important;
+    padding: 0 !important;
+    background: transparent !important;
+  }
+  #grv-print-sheet {
+    border: none !important;
+    box-shadow: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+}
+
+

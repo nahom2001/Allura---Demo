@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Layout, Button, Table, Dropdown, Menu } from 'antd';
+import { Layout, Button, Table, Dropdown, Menu, Tooltip } from 'antd';
 import { PlusOutlined, DeleteOutlined, EyeOutlined, SyncOutlined, MoreOutlined } from '@ant-design/icons';
 import { 
   Check, 
@@ -13,15 +13,7 @@ import {
   FileText,
   User,
   MessageSquare,
-  Plus,
-  Trash2,
-  Eye,
   Printer,
-  Share2,
-  FileDown,
-  Lock,
-  Unlock,
-  Users,
   SlidersHorizontal,
   ArrowUpDown,
   Filter,
@@ -30,7 +22,7 @@ import {
 } from 'lucide-react';
 import { BinCardTransaction, Material, Store, PurchaseOrder, SystemUser } from '../types';
 
-const { Sider, Content } = Layout;
+const { Sider } = Layout;
 
 interface VoucherValidationViewProps {
   binTransactions: BinCardTransaction[];
@@ -38,15 +30,7 @@ interface VoucherValidationViewProps {
   stores: Store[];
   purchaseOrders: PurchaseOrder[];
   systemUsers: SystemUser[];
-  onUpdateTransaction: (updatedTx: BinCardTransaction) => void;
-}
-
-// Internal structures to simulate Page 2 Form multiple materials registration
-interface NewVoucherItem {
-  id: string;
-  materialId: string;
-  quantity: number;
-  spec: string;
+  onUpdateTransaction: (transaction: BinCardTransaction) => void;
 }
 
 export default function VoucherValidationView({
@@ -58,10 +42,7 @@ export default function VoucherValidationView({
   onUpdateTransaction
 }: VoucherValidationViewProps) {
   
-  // Tab view controller matching ConDigital PDF Tabs
-  const [activeTab, setActiveTab] = useState<'ledger' | 'register' | 'reports' | 'access'>('ledger');
-
-  // Simulation of logged-in user context & role matrix (as pictured in Page 4 & 5)
+  // Simulation of logged-in user context & role matrix
   const [activeUserId, setActiveUserId] = useState<string>('usr-7'); // Defaults to Selamawit Dawit (PM)
   const [isSuperUser, setIsSuperUser] = useState<boolean>(true); // Super Users bypass limits
   const [userStatuses, setUserStatuses] = useState<Record<string, 'Activated' | 'Terminated'>>({
@@ -74,7 +55,6 @@ export default function VoucherValidationView({
     'usr-7': 'Activated'
   });
 
-  // State to custom edit access rights matrix on-the-fly (Page 4)
   const [rolePermissions, setRolePermissions] = useState<Record<string, string[]>>({
     'Project Manager': ['Read Only', 'Write', 'Edit', 'Delete', 'Check', 'Approve', 'Full Access'],
     'Stock Controller': ['Read Only', 'Write', 'Edit', 'Check', 'Approve'],
@@ -82,46 +62,21 @@ export default function VoucherValidationView({
     'Store Keeper': ['Read Only', 'Write', 'Edit']
   });
 
-  // In-memory extension layer of receipts / vouchers to support registering brand new entries on the fly!
+  // Local vouchers cached layer to handle real-time simulation updates
   const [localVouchers, setLocalVouchers] = useState<BinCardTransaction[]>([]);
 
-  // Selection states
+  // GRV Selection and Filters
   const [selectedGrvId, setSelectedGrvId] = useState<string | null>(null);
   const [selectedPoId, setSelectedPoId] = useState<string | null>(null);
-  
-  // UX Enhancing Filters & Search (Page 1 - Mandatory)
   const [grvSearch, setGrvSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<'All' | 'Pending' | 'Approved' | 'Revision Required' | 'Rejected'>('All');
   const [durationStart, setDurationStart] = useState('');
   const [durationEnd, setDurationEnd] = useState('');
   const [sortField, setSortField] = useState<'code' | 'date'>('date');
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc'); // Default to latest first
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  // Form Fields for new Registration (Page 2)
-  const [newVoucherType, setNewVoucherType] = useState<'Store Requisition' | 'Goods Received' | 'Daily Report'>('Goods Received');
-  const [newVoucherDate, setNewVoucherDate] = useState<string>(new Date().toISOString().split('T')[0]);
-  const [newVoucherNo, setNewVoucherNo] = useState<string>('');
-  const [newPadRef, setNewPadRef] = useState<string>('');
-  const [newRequestedTo, setNewRequestedTo] = useState<string>('');
-  const [newRequestedBy, setNewRequestedBy] = useState<string>('Gotera Project');
-  const [newCheckedById, setNewCheckedById] = useState<string>('usr-4');
-  const [newApprovedById, setNewApprovedById] = useState<string>('usr-7');
-  
-  // Form Multiple Items selection table
-  const [registrationItems, setRegistrationItems] = useState<NewVoucherItem[]>([
-    { id: 'item-1', materialId: 'mat-1', quantity: 1500, spec: 'Cement factory consignment bulk' },
-    { id: 'item-2', materialId: 'mat-2', quantity: 200, spec: 'Fine sand concrete yard' }
-  ]);
-  const [formSelectedMatId, setFormSelectedMatId] = useState<string>('');
-  const [formQty, setFormQty] = useState<number>(0);
-  const [formSpec, setFormSpec] = useState<string>('');
-
-  // Report duration and filters (Page 3)
-  const [reportType, setReportType] = useState<'Bin Card' | 'Stock Movement' | 'Monthly Report'>('Bin Card');
-  const [reportSearchQuery, setReportSearchQuery] = useState('');
-
-  // Action Inputs for the Reconciliation panel
+  // Action Inputs for Reconciliation/Audit panel
   const [remarksText, setRemarksText] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
@@ -133,20 +88,9 @@ export default function VoucherValidationView({
     }, 4500);
   };
 
-  // Initialize form default fields
-  useEffect(() => {
-    if (materials.length > 0 && !formSelectedMatId) {
-      setFormSelectedMatId(materials[0].id);
-    }
-    if (stores.length > 0 && !newRequestedTo) {
-      setNewRequestedTo(stores[0].id);
-    }
-  }, [materials, stores]);
-
-  // Merge transactions from props with any registered vouchers created locally during the session
+  // Sync prop changes with local vouchers cache
   useEffect(() => {
     const defaultTxIds = new Set(binTransactions.map(t => t.id));
-    // Filter out any default transactions from localVouchers that might duplicate
     const uniqueLocal = localVouchers.filter(v => !defaultTxIds.has(v.id));
     setLocalVouchers([...binTransactions, ...uniqueLocal]);
   }, [binTransactions]);
@@ -156,32 +100,28 @@ export default function VoucherValidationView({
   const isTerminated = currentUserObj ? userStatuses[currentUserObj.id] === 'Terminated' : false;
   const userAccessList = currentUserObj ? rolePermissions[currentUserObj.role] || [] : [];
 
-  // Security authorization checks (conforming to matrix guidelines)
   const canPerformAction = (action: 'Read Only' | 'Write' | 'Edit' | 'Delete' | 'Check' | 'Approve' | 'Full Access') => {
     if (isSuperUser) return true;
     if (isTerminated) return false;
     return userAccessList.includes(action);
   };
 
-  // Safe fetch of inbound receipts matching search filters and sorted
+  // ------ GOODS RECEIVED NOTE (GRV) DATA PROCESSING ------
   const grvTransactions = localVouchers.filter(
     t => t.receivedQty !== undefined && t.receivedQty > 0
   );
 
-  // Triggering sorting and custom search
   const filteredGrvs = grvTransactions.filter(grv => {
     const mat = materials.find(m => m.id === grv.materialId);
     const matName = mat ? mat.description : '';
-    
-    // Page 1 Search guidelines: Search by item description or voucher/GRV number or Pad reference number
     const query = grvSearch.toLowerCase().trim();
+    
     const searchMatches = 
       grv.grnSivNo.toLowerCase().includes(query) || 
       matName.toLowerCase().includes(query) ||
       (grv.remark || '').toLowerCase().includes(query) ||
       (grv.plateNumber || '').toLowerCase().includes(query);
     
-    // Page 1 Duration Selector Filter
     let dateMatches = true;
     if (durationStart) {
       dateMatches = dateMatches && grv.date >= durationStart;
@@ -190,7 +130,6 @@ export default function VoucherValidationView({
       dateMatches = dateMatches && grv.date <= durationEnd;
     }
 
-    // Tab categories filter
     const status = grv.qaStatus || (grv.qaApprovedById ? 'Approved' : 'Pending');
     let statusMatches = true;
     if (statusFilter !== 'All') {
@@ -208,7 +147,7 @@ export default function VoucherValidationView({
     return sortOrder === 'desc' ? -comparison : comparison;
   });
 
-  // Automatically fetch matching PO when a voucher is selected
+  // Autoselect corresponding PO when a GRV is chosen
   useEffect(() => {
     if (selectedGrvId) {
       const currentGrv = localVouchers.find(t => t.id === selectedGrvId);
@@ -241,7 +180,6 @@ export default function VoucherValidationView({
   const activePo = purchaseOrders.find(po => po.id === selectedPoId) || null;
   const grvMaterial = activeGrv ? materials.find(m => m.id === activeGrv.materialId) || null : null;
   
-  // Find matching PO line item
   const matchingPoItem = activePo && grvMaterial 
     ? activePo.items.find(item => 
         item.description.toLowerCase().includes(grvMaterial.description.toLowerCase()) ||
@@ -250,7 +188,6 @@ export default function VoucherValidationView({
       ) || activePo.items[0]
     : null;
 
-  // Comparison metrics
   const grvQty = activeGrv?.receivedQty || 0;
   const grvPrice = activeGrv?.unitPrice || 0;
   const grvTotal = grvQty * grvPrice;
@@ -259,21 +196,13 @@ export default function VoucherValidationView({
   const poPrice = matchingPoItem?.unitPrice || 0;
   const poTotal = poQty * poPrice;
 
-  // Variances
   const qtyMismatch = grvQty !== poQty;
   const priceMismatch = grvPrice !== poPrice;
   const qtyDiff = grvQty - poQty;
   const priceDiff = grvPrice - poPrice;
   const totalDiff = grvTotal - poTotal;
 
-  // Total Summary Panel Stats
-  const totalGrvs = grvTransactions.length;
-  const pendingQty = grvTransactions.filter(t => !t.qaApprovedById && t.qaStatus !== 'Rejected' && t.qaStatus !== 'Revision Required').length;
-  const approvedQty = grvTransactions.filter(t => t.qaStatus === 'Approved').length;
-  const revisionQty = grvTransactions.filter(t => t.qaStatus === 'Revision Required').length;
-  const rejectedQty = grvTransactions.filter(t => t.qaStatus === 'Rejected').length;
-
-  // Handlers for validation flows
+  // ------ GENERAL HANDLERS ------
   const handleApprove = () => {
     if (!activeGrv) return;
     if (isTerminated) {
@@ -296,7 +225,6 @@ export default function VoucherValidationView({
     onUpdateTransaction(updated);
     setLocalVouchers(prev => prev.map(t => t.id === updated.id ? updated : t));
     
-    // Notification log
     setSuccessMessage(`Voucher ${activeGrv.grnSivNo} has been verified & approved. Balance ledger posted.`);
     setRemarksText('');
     setTimeout(() => setSuccessMessage(''), 4000);
@@ -339,11 +267,11 @@ export default function VoucherValidationView({
       return;
     }
     if (!canPerformAction('Check')) {
-      triggerError('Unauthorized role check error. Requesting corrections requires validation permission.');
+      triggerError('Role check error: Revisions require custom Check privileges.');
       return;
     }
     if (!remarksText) {
-      triggerError('Please explain the required modifications in the log remarks.');
+      triggerError('Correction / revision requirements must be documented in comments.');
       return;
     }
 
@@ -357,228 +285,110 @@ export default function VoucherValidationView({
 
     onUpdateTransaction(updated);
     setLocalVouchers(prev => prev.map(t => t.id === updated.id ? updated : t));
-    setSuccessMessage(`Revision notification transmitted for Voucher ${activeGrv.grnSivNo}.`);
+    setSuccessMessage(`Voucher ${activeGrv.grnSivNo} flagged for Revision.`);
     setRemarksText('');
     setTimeout(() => setSuccessMessage(''), 4000);
   };
 
-  // Revert verified status. Only available to super users and certain users
-  const handleRevertStatus = (voucher: BinCardTransaction) => {
-    if (isTerminated) {
-      triggerError('Your user account is Terminated. Access denied.');
-      return;
-    }
+  const handleRevertStatus = (txObj: BinCardTransaction) => {
+    if (isTerminated) return triggerError('Access Denied. Account is Terminated.');
     if (!isSuperUser && currentUserObj?.role !== 'Project Manager') {
-      triggerError('Reverting status is restricted strictly to Super Users and Project Managers.');
-      return;
+      return triggerError('Action restricted to PMs / Supervisors.');
     }
 
     const updated: BinCardTransaction = {
-      ...voucher,
-      qaApprovedById: undefined,
+      ...txObj,
       qaStatus: undefined,
+      qaApprovedById: undefined,
       qaApprovedDate: undefined,
       qaRemark: undefined
     };
 
     onUpdateTransaction(updated);
     setLocalVouchers(prev => prev.map(t => t.id === updated.id ? updated : t));
-    setSuccessMessage(`Voucher ${voucher.grnSivNo} has been reverted to Pending state.`);
+    setSuccessMessage(`Ledger status for ${txObj.grnSivNo} has been reverted to Pending state.`);
     setTimeout(() => setSuccessMessage(''), 4000);
   };
 
-  // Delete completely
-  const handleDeleteVoucher = (voucherId: string) => {
-    const v = localVouchers.find(tx => tx.id === voucherId);
-    if (!v) return;
-
-    if (isTerminated) {
-      triggerError('Your user account is Terminated. Access denied.');
-      return;
-    }
+  const handleDeleteVoucher = (txId: string) => {
+    if (isTerminated) return triggerError('Access Denied. Account is Terminated.');
     if (!canPerformAction('Delete')) {
-      triggerError('Role check error: Your current scope lacks Delete authorization permissions.');
-      return;
+      return triggerError('Designated user lacks Delete credential privileges.');
     }
 
-    if (window.confirm(`Are you absolutely sure you want to delete Voucher ${v.grnSivNo}?`)) {
-      setLocalVouchers(prev => prev.filter(tx => tx.id !== voucherId));
-      if (selectedGrvId === voucherId) {
-        setSelectedGrvId(null);
-      }
-      setSuccessMessage(`Voucher ${v.grnSivNo} deleted permanently.`);
+    const targeted = localVouchers.find(t => t.id === txId);
+    if (!targeted) return;
+
+    if (window.confirm(`Are you sure you want to delete Voucher ${targeted.grnSivNo} permanently from ledger records?`)) {
+      setLocalVouchers(prev => prev.filter(t => t.id !== txId));
+      onUpdateTransaction({
+        ...targeted,
+        receivedQty: 0,
+        remark: 'VOUCHER DELETED'
+      });
+      setSuccessMessage(`Voucher deleted successfully.`);
+      if (selectedGrvId === txId) setSelectedGrvId(null);
       setTimeout(() => setSuccessMessage(''), 3000);
     }
   };
 
-  // Trigger Refresh action above the table
   const handleRefreshTable = () => {
     setIsRefreshing(true);
     setTimeout(() => {
-      setGrvSearch('');
-      setDurationStart('');
-      setDurationEnd('');
-      setStatusFilter('All');
       setIsRefreshing(false);
-      setSuccessMessage('Ledger indices synchronized and refreshed.');
+      setSuccessMessage('Voucher validation tables synced with active store database profiles.');
       setTimeout(() => setSuccessMessage(''), 3000);
-    }, 600);
-  };
-
-  // Add dynamic line item in the Multi-Item registry form
-  const handleAddFormItem = () => {
-    if (!formSelectedMatId) {
-      triggerError('Please select a material Code/Description.');
-      return;
-    }
-    if (formQty <= 0) {
-      triggerError('Please enter a valid positive quantity.');
-      return;
-    }
-
-    const duplicate = registrationItems.some(i => i.materialId === formSelectedMatId);
-    if (duplicate) {
-      triggerError('This material is already in your registration checklist. Edit its quantity instead.');
-      return;
-    }
-
-    const newItem: NewVoucherItem = {
-      id: `reg-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
-      materialId: formSelectedMatId,
-      quantity: formQty,
-      spec: formSpec || 'Standard construction delivery'
-    };
-
-    setRegistrationItems([...registrationItems, newItem]);
-    setFormQty(0);
-    setFormSpec('');
-  };
-
-  const handleRemoveFormItem = (itemId: string) => {
-    setRegistrationItems(registrationItems.filter(i => i.id !== itemId));
-  };
-
-  // Registering multiple materials: Posts them to the menu table
-  const handleRegisterVoucher = (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (isTerminated) {
-      triggerError('Your user account is Terminated. Access denied.');
-      return;
-    }
-    if (!canPerformAction('Write')) {
-      triggerError('Role check error: Your current role scope lacks Write permissions to create vouchers.');
-      return;
-    }
-
-    if (registrationItems.length === 0) {
-      triggerError('Please add at least one material line item to the voucher.');
-      return;
-    }
-
-    const generatedNo = newVoucherNo || `GRV-${Math.floor(Math.random() * 9000) + 1000}`;
-
-    // Loop through each item in the multiple registration checklist and construct transactions
-    const constructedTxs: BinCardTransaction[] = registrationItems.map((item, idx) => {
-      const matDetail = materials.find(m => m.id === item.materialId);
-      return {
-        id: `tx-new-${Date.now()}-${idx}`,
-        materialId: item.materialId,
-        date: newVoucherDate,
-        grnSivNo: generatedNo,
-        receivedQty: item.quantity,
-        balance: (matDetail?.quantity || 0) + item.quantity,
-        unitPrice: matDetail?.unitPrice || 750,
-        remark: `${newVoucherType} - ${item.spec} (Pad Ref: ${newPadRef || 'None'})`,
-        signature: currentUserObj?.initials || 'CREATOR',
-        checkedById: newCheckedById,
-        approvedById: newApprovedById,
-        qaStatus: undefined // Starts as pending validation
-      };
-    });
-
-    // Save and queue on parent props
-    constructedTxs.forEach(tx => {
-      // Feed transactions incrementally back to layout parent so inventory counts update
-      onUpdateTransaction(tx);
-    });
-
-    // Append to local state list immediately
-    setLocalVouchers(prev => [...constructedTxs, ...prev]);
-
-    // Clear and prompt success
-    setSuccessMessage(`Successfully registered ${newVoucherType} No: ${generatedNo} with ${registrationItems.length} items. Checklist assigned to controllers.`);
-    setRegistrationItems([]);
-    setNewVoucherNo('');
-    setNewPadRef('');
-    
-    // Page 2 Guideline: "Automatically refresh to display the new entry, default sorting is latest to earliest."
-    // Switch tab to Voucher Ledger with 'All' filter Active
-    setStatusFilter('All');
-    setSortField('date');
-    setSortOrder('desc');
-    setActiveTab('ledger');
-    
-    setTimeout(() => setSuccessMessage(''), 5050);
-  };
-
-  // PDF / Excel formatting alerts (Page 3 Reports)
-  const triggerSimulationExport = (format: 'Excel' | 'PDF') => {
-    setSuccessMessage(`Preparing ${format} download pipeline...`);
-    const mockFilename = `${reportType.toLowerCase().replace(' ', '_')}_export_${new Date().toISOString().split('T')[0]}`;
-    
-    setTimeout(() => {
-      // Triggers browser-native prompt or beautiful toast
-      const link = document.createElement('a');
-      link.href = '#';
-      link.setAttribute('download', `${mockFilename}.${format === 'Excel' ? 'xlsx' : 'pdf'}`);
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-
-      setSuccessMessage(`Export complete: ${mockFilename}.${format === 'Excel' ? 'xlsx' : 'pdf'} generated (simulated download).`);
-      setTimeout(() => setSuccessMessage(''), 4000);
     }, 1200);
   };
 
-  const handleSimulatePrint = () => {
-    setSuccessMessage('Transmitting print package load to queue spooler...');
-    setTimeout(() => {
-      window.print();
-    }, 700);
-  };
-
+  // ------ TABLE COLUMNS SETUP FOR SIDEBARS ------
   const voucherTableColumns = [
     {
-      title: 'Voucher Info',
-      key: 'voucherInfo',
-      render: (_: unknown, record: BinCardTransaction) => {
+      title: 'Voucher',
+      dataIndex: 'grnSivNo',
+      key: 'grnSivNo',
+      render: (text: string, record: BinCardTransaction) => {
         const mat = materials.find(m => m.id === record.materialId);
+        const st = stores.find(s => s.id === mat?.storeId);
         const status = record.qaStatus || (record.qaApprovedById ? 'Approved' : 'Pending');
-        let statusTagColor = 'orange';
-        if (status === 'Approved') statusTagColor = 'green';
-        else if (status === 'Revision Required') statusTagColor = 'volcano';
-        else if (status === 'Rejected') statusTagColor = 'red';
+        
+        let statusBadge = (
+          <span className="inline-flex items-center text-[10px] bg-amber-50 text-amber-700 px-1.5 py-0.5 rounded border border-amber-200/50">
+            Pending
+          </span>
+        );
+        if (status === 'Approved') {
+          statusBadge = (
+            <span className="inline-flex items-center text-[10px] bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded border border-emerald-200/50 font-bold">
+              Cleared
+            </span>
+          );
+        } else if (status === 'Revision Required') {
+          statusBadge = (
+            <span className="inline-flex items-center text-[10px] bg-red-50 text-red-700 px-1.5 py-0.5 rounded border border-red-200/50 font-semibold">
+              Revision
+            </span>
+          );
+        } else if (status === 'Rejected') {
+          statusBadge = (
+            <span className="inline-flex items-center text-[10px] bg-[#fff1f0] text-[#cf1322] px-1.5 py-0.5 rounded border border-[#ffccc7]">
+              Rejected
+            </span>
+          );
+        }
 
         return (
-          <div className="space-y-1 text-left">
-            <div className="flex items-center justify-between">
-              <span className="font-semibold text-slate-800 font-mono text-xs">{record.grnSivNo}</span>
-              <span className={`text-[9px] px-1.5 py-0.5 rounded border leading-none font-semibold uppercase ${
-                status === 'Approved' ? 'text-[#52c41a] bg-[#f6ffed] border-[#b7eb8f]' :
-                status === 'Revision Required' ? 'text-[#fa541c] bg-[#fff2e8] border-[#ffd8bf]' :
-                status === 'Rejected' ? 'text-[#ff4d4f] bg-[#fff1f0] border-[#ffccc7]' :
-                'text-[#faad14] bg-[#fffbe6] border-[#ffe58f]'
-              }`}>
-                {status === 'Revision Required' ? 'Revis' : status}
-              </span>
+          <div className="py-2.5 px-3 hover:bg-[#fafafa] flex flex-col gap-1.5 leading-tight rounded text-left">
+            <div className="flex justify-between items-center gap-1.5">
+              <span className="font-bold text-[#1f1f1f] text-xs uppercase tracking-tight">{text}</span>
+              <span className="text-[10px] text-slate-400 font-medium font-mono">{record.date}</span>
             </div>
-            <p className="text-[#262626] font-medium leading-normal line-clamp-1 text-xs">
-              {mat ? mat.description : 'Unspecified BoQ Line Item'}
-            </p>
-            <div className="flex items-center justify-between text-[10px] text-[#8c8c8c] pt-1">
-              <span>Qty: <strong className="text-slate-700">{record.receivedQty} {mat?.unit || 'Units'}</strong></span>
-              <span>Date: <strong className="text-slate-705">{record.date}</strong></span>
+            <div className="text-slate-500 font-medium text-[11px] truncate w-[220px]">
+              {mat ? mat.description : 'Uncoded Item Descriptor'}
+            </div>
+            <div className="flex justify-between items-center gap-1 text-[10px] pt-0.5">
+              <span className="text-slate-400 italic">Qty: <b className="text-slate-650 font-mono font-bold">{record.receivedQty || 0}</b></span>
+              {statusBadge}
             </div>
           </div>
         );
@@ -587,31 +397,15 @@ export default function VoucherValidationView({
     {
       title: 'Action',
       key: 'action',
-      width: 75,
-      render: (_: unknown, record: BinCardTransaction) => {
+      width: 44,
+      render: (_: any, record: BinCardTransaction) => {
+        const menuItems = [];
         const status = record.qaStatus || (record.qaApprovedById ? 'Approved' : 'Pending');
-        
-        interface MenuItemType {
-          key: string;
-          label: string;
-          icon: React.ReactNode;
-          danger?: boolean;
-          onClick: () => void;
-        }
 
-        const menuItems: MenuItemType[] = [
-          {
-            key: 'view',
-            label: 'View Audit',
-            icon: <EyeOutlined />,
-            onClick: () => setSelectedGrvId(record.id)
-          }
-        ];
-        
         if (status !== 'Pending') {
           menuItems.push({
             key: 'revert',
-            label: 'Revert To Pending',
+            label: 'Revert to Pending',
             icon: <SyncOutlined />,
             onClick: () => handleRevertStatus(record)
           });
@@ -625,13 +419,9 @@ export default function VoucherValidationView({
           onClick: () => handleDeleteVoucher(record.id)
         });
 
-        const menuProps = { items: menuItems };
-
         return (
-          <div onClick={(e) => {
-            e.stopPropagation();
-          }}>
-            <Dropdown menu={menuProps} trigger={['click']}>
+          <div onClick={(e) => { e.stopPropagation(); }} className="flex justify-center items-center h-full pr-1.5 pt-4">
+            <Dropdown menu={{ items: menuItems }} trigger={['click']}>
               <Button type="text" size="small" icon={<MoreOutlined className="text-slate-500" />} />
             </Dropdown>
           </div>
@@ -640,171 +430,38 @@ export default function VoucherValidationView({
     }
   ];
 
-  const registrationTableColumns = [
-    {
-      title: 'No',
-      key: 'index',
-      width: 50,
-      align: 'center' as const,
-      render: (_: unknown, record: NewVoucherItem, index: number) => index + 1
-    },
-    {
-      title: 'Material Code',
-      key: 'code',
-      render: (_: unknown, record: NewVoucherItem) => {
-        const matInfo = materials.find(m => m.id === record.materialId);
-        return <span className="font-mono font-medium">{matInfo?.code || 'AUTO'}</span>;
-      }
-    },
-    {
-      title: 'Material Description',
-      key: 'description',
-      render: (_: unknown, record: NewVoucherItem) => {
-        const matInfo = materials.find(m => m.id === record.materialId);
-        return <span className="text-slate-800 font-medium">{matInfo?.description || 'N/A'}</span>;
-      }
-    },
-    {
-      title: 'Unit',
-      key: 'unit',
-      align: 'center' as const,
-      render: (_: unknown, record: NewVoucherItem) => {
-        const matInfo = materials.find(m => m.id === record.materialId);
-        return <span className="text-slate-500">{matInfo?.unit || 'Units'}</span>;
-      }
-    },
-    {
-      title: 'Quantity',
-      key: 'quantity',
-      align: 'right' as const,
-      render: (_: unknown, record: NewVoucherItem) => (
-        <span className="font-mono font-bold text-slate-950">{record.quantity}</span>
-      )
-    },
-    {
-      title: 'Specification / Remarks',
-      key: 'spec',
-      render: (_: unknown, record: NewVoucherItem) => (
-        <span className="text-slate-600 italic text-[11px]">{record.spec}</span>
-      )
-    },
-    {
-      title: 'Action',
-      key: 'action',
-      align: 'center' as const,
-      render: (_: unknown, record: NewVoucherItem) => (
-        <Button 
-          type="link" 
-          danger 
-          size="small" 
-          onClick={() => handleRemoveFormItem(record.id)}
-          className="text-xs hover:bg-red-50 font-semibold"
-        >
-          ✕ Remove
-        </Button>
-      )
-    }
-  ];
-
-  const reportTableColumns = [
-    {
-      title: 'Voucher No',
-      key: 'voucherNo',
-      dataIndex: 'grnSivNo',
-      render: (text: string) => <span className="font-mono font-semibold text-slate-900">{text}</span>
-    },
-    {
-      title: 'Reference Document',
-      key: 'reference',
-      render: (_: unknown, record: BinCardTransaction) => (
-        <span className="font-medium text-slate-500">
-          {record.remark && record.remark.includes('Pad Ref:') ? record.remark.split('Pad Ref:')[1].trim() : 'N/A Code'}
-        </span>
-      )
-    },
-    {
-      title: 'Category',
-      key: 'category',
-      render: (_: unknown, record: BinCardTransaction) => {
-        const matObj = materials.find(m => m.id === record.materialId);
-        return <span className="text-slate-500 text-[11px]">{matObj?.category || 'General BoQ'}</span>;
-      }
-    },
-    {
-      title: 'GC Date',
-      key: 'date',
-      dataIndex: 'date',
-      render: (text: string) => <span className="font-mono text-slate-500">{text}</span>
-    },
-    {
-      title: 'Material Asset Block',
-      key: 'materialAssetBlock',
-      render: (_: unknown, record: BinCardTransaction) => {
-        const matObj = materials.find(m => m.id === record.materialId);
-        return <span className="font-medium text-slate-800">{matObj?.description || 'N/A Item'}</span>;
-      }
-    },
-    {
-      title: 'Inbound (Qty)',
-      key: 'inbound',
-      align: 'right' as const,
-      render: (_: unknown, record: BinCardTransaction) => (
-        <span className="text-emerald-600 font-mono font-bold">{record.receivedQty || '-'}</span>
-      )
-    },
-    {
-      title: 'Outbound (Qty)',
-      key: 'outbound',
-      align: 'right' as const,
-      render: (_: unknown, record: BinCardTransaction) => (
-        <span className="text-rose-600 font-mono font-bold">{record.issuedQty || record.transferredQty || '-'}</span>
-      )
-    },
-    {
-      title: 'Unit',
-      key: 'unit',
-      align: 'center' as const,
-      render: (_: unknown, record: BinCardTransaction) => {
-        const matObj = materials.find(m => m.id === record.materialId);
-        return <span className="text-slate-400 text-[11px]">{matObj?.unit || 'PCS'}</span>;
-      }
-    },
-    {
-      title: 'Unit Price (ETB)',
-      key: 'unitPrice',
-      align: 'right' as const,
-      render: (_: unknown, record: BinCardTransaction) => (
-        <span className="font-mono font-semibold text-slate-700">{record.unitPrice.toLocaleString()}</span>
-      )
-    },
-    {
-      title: 'Audit Status',
-      key: 'auditStatus',
-      align: 'center' as const,
-      render: (_: unknown, record: BinCardTransaction) => {
-        const status = record.qaStatus || (record.qaApprovedById ? 'Approved' : 'Pending');
-        let auditBadge = 'text-[#faad14] bg-[#fffbe6] border-[#ffe58f]';
-        if (status === 'Approved') {
-          auditBadge = 'text-[#52c41a] bg-[#f6ffed] border-[#b7eb8f]';
-        } else if (status === 'Revision Required') {
-          auditBadge = 'text-[#fa541c] bg-[#fff2e8] border-[#ffd8bf]';
-        } else if (status === 'Rejected') {
-          auditBadge = 'text-[#ff4d4f] bg-[#fff1f0] border-[#ffccc7]';
-        }
-        return (
-          <span className={`inline-block px-1.5 py-0.5 rounded border text-[10px] uppercase font-bold tracking-tight ${auditBadge}`}>
-            {status}
-          </span>
-        );
-      }
-    }
-  ];
-
   return (
     <div className="space-y-4 font-sans text-left" id="voucher-validation-view">
 
+      {/* Embedded dynamic print CSS inside component to isolate print streams elegantly */}
+      <style>{`
+        @media print {
+          body * {
+            visibility: hidden !important;
+          }
+          #grv-print-sheet, #grv-print-sheet * {
+            visibility: visible !important;
+          }
+          #grv-print-sheet {
+            position: absolute !important;
+            left: 0 !important;
+            top: 0 !important;
+            width: 100% !important;
+            border: none !important;
+            box-shadow: none !important;
+            padding: 2.5rem !important;
+            background: white !important;
+            color: black !important;
+          }
+          .no-print {
+            display: none !important;
+          }
+        }
+      `}</style>
+
+      {/* SUCCESS TOAST ALERT BANNER */}
       {successMessage && (
-        <div className="p-3 bg-[#f6ffed] border border-[#b7eb8f] text-[#389e0d] rounded-[6px] text-xs font-normal flex items-center justify-between shadow-3xs transition duration-300">
+        <div className="p-3 bg-[#f6ffed] border border-[#b7eb8f] text-[#389e0d] rounded-[6px] text-xs font-normal flex items-center justify-between shadow-3xs transition duration-300 no-print">
           <div className="flex items-center gap-2 font-medium">
             <CheckCircle2 size={14} className="text-[#52c41a]" />
             <span>{successMessage}</span>
@@ -815,8 +472,9 @@ export default function VoucherValidationView({
         </div>
       )}
 
+      {/* ERROR TOAST ALERT BANNER */}
       {errorMessage && (
-        <div className="p-3 bg-[#fff1f0] border border-[#ffccc7] text-[#ff4d4f] rounded-[6px] text-xs font-normal flex items-center justify-between shadow-3xs transition duration-300">
+        <div className="p-3 bg-[#fff1f0] border border-[#ffccc7] text-[#ff4d4f] rounded-[6px] text-xs font-normal flex items-center justify-between shadow-3xs transition duration-300 no-print">
           <div className="flex items-center gap-2 font-medium">
             <AlertCircle size={14} className="text-[#ff4d4f]" />
             <span>{errorMessage}</span>
@@ -827,10 +485,70 @@ export default function VoucherValidationView({
         </div>
       )}
 
-      {/* 3. Tab Contents Layout: Voucher Ledger & 3-Way Reconciliation Audit */}
-      <Layout style={{ background: 'transparent' }} className="flex flex-col lg:flex-row gap-5">
+      {/* Header and User Matrix Simulation context */}
+      <div className="p-4 bg-white border border-[#eaeaea] rounded-xl flex flex-wrap items-center justify-between gap-4 no-print select-none shadow-3xs">
+        <div>
+          <h2 className="text-base font-bold text-[#1a1a1a]">Voucher Verification & Audit Center</h2>
+          <p className="text-xs text-[#595959] mt-0.5">Validate physical GRVs (Goods Received Notes) against purchase receipts before posting balances.</p>
+        </div>
+
+        {/* Dynamic Simulation User Profiles Context */}
+        <div className="flex items-center gap-3.5 bg-slate-50 border border-slate-200/50 rounded-lg p-2.5 text-xs font-medium">
+          <div className="flex flex-col gap-0.5">
+            <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wide">Simulation Operator Context</span>
+            <div className="flex items-center gap-1.5">
+              <User size={12} className="text-[#033096]" />
+              <select 
+                value={activeUserId} 
+                onChange={(e) => setActiveUserId(e.target.value)}
+                className="h-6 pr-5 pl-1 rounded border border-[#d9d9d9] bg-white text-xs font-semibold cursor-pointer outline-none focus:border-[#033096]"
+              >
+                {systemUsers.map(u => (
+                  <option key={u.id} value={u.id}>{u.name} ({u.role})</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <div className="h-8 w-px bg-slate-200" />
+
+          {/* Super User and Account Activation toggles */}
+          <div className="flex items-center gap-2">
+            <label className="flex items-center gap-1 cursor-pointer">
+              <input 
+                type="checkbox" 
+                checked={isSuperUser} 
+                onChange={(e) => setIsSuperUser(e.target.checked)}
+                className="rounded text-[#033096] focus:ring-[#033096]"
+              />
+              <span className="text-[10px] text-slate-550 font-bold">Admin Override</span>
+            </label>
+            <div className="h-4 w-px bg-slate-200" />
+            <button
+              onClick={() => {
+                setUserStatuses(prev => ({
+                  ...prev,
+                  [activeUserId]: prev[activeUserId] === 'Activated' ? 'Terminated' : 'Activated'
+                }));
+              }}
+              className={`h-5 px-2 text-[10px] font-bold rounded cursor-pointer transition ${
+                isTerminated 
+                  ? 'bg-red-100 text-red-700 border border-red-200' 
+                  : 'bg-emerald-100 text-emerald-700 border border-emerald-200'
+              }`}
+            >
+              Mock Status: {isTerminated ? 'Terminated' : 'Active'}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* ========================================================= */}
+      {/* 1. GOODS RECEIVED NOTE (GRV) SECTION WORKSPACE            */}
+      {/* ========================================================= */}
+      <Layout style={{ background: 'transparent' }} className="flex flex-col lg:flex-row gap-5 no-print">
           
-          {/* A1. Voucher List Sidebar Converted to full Menu Table with Columns (Page 1) */}
+          {/* GRV Sidebar Selector */}
           <Sider
             width={380}
             breakpoint="lg"
@@ -838,23 +556,19 @@ export default function VoucherValidationView({
             style={{ background: '#fff' }}
             className="flex flex-col border border-[#f0f0f0] rounded-[6px] shadow-sm overflow-hidden h-[620px]"
           >
-            
-            {/* Filters panel inside Sidebar menu table header (Page 1 Enhancements) */}
             <div className="p-3.5 bg-[#fafafa] border-b border-[#f0f0f0] flex flex-col gap-3">
               <div className="flex items-center justify-between gap-2">
-                <span className="text-xs font-semibold text-[#262626]">Filter & Search Vouchers</span>
+                <span className="text-xs font-semibold text-[#262626]">Filter & Search GRV Vouchers</span>
                 <button 
                   onClick={handleRefreshTable}
                   disabled={isRefreshing}
                   className="p-1.5 text-[#1677ff] hover:bg-[#e6f4ff] rounded transition cursor-pointer flex items-center gap-1 text-[11px]"
-                  title="Refresh Voucher Table Indices"
                 >
                   <RefreshCw size={11} className={isRefreshing ? 'animate-spin' : ''} />
-                  <span>Refresh</span>
+                  <span>Sync</span>
                 </button>
               </div>
 
-              {/* Page 1 Search guidelines: Search by Item Description / Voucher No / Pad Reference */}
               <div className="relative">
                 <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400 pointer-events-none">
                   <Search size={12} />
@@ -863,34 +577,32 @@ export default function VoucherValidationView({
                   type="text"
                   value={grvSearch}
                   onChange={(e) => setGrvSearch(e.target.value)}
-                  placeholder="Search item, GRV No, Ref No, metadata..."
+                  placeholder="Search raw description, GRV No, Plate..."
                   className="w-full h-8 pl-8 pr-3 text-xs text-[#262626] bg-white border border-[#d9d9d9] rounded-[4px] hover:border-[#4096ff] focus:border-[#4096ff] focus:shadow-[0_0_0_2px_rgba(22,119,255,0.08)] outline-none transition duration-200"
                 />
               </div>
 
-              {/* Page 1 UX: Filter inside Date - Duration Selector */}
               <div className="grid grid-cols-2 gap-2 text-[11px]">
                 <div>
-                  <span className="text-slate-400 block mb-0.5">Start Date</span>
+                  <span className="text-slate-400 block mb-0.5 font-medium">Start Date</span>
                   <input 
                     type="date"
                     value={durationStart}
                     onChange={(e) => setDurationStart(e.target.value)}
-                    className="w-full text-xs h-7 px-1.5 border border-[#d9d9d9] rounded hover:border-[#4096ff] focus:outline-none"
+                    className="w-full text-xs h-7 px-1.5 border border-[#d9d9d9] rounded hover:border-[#4096ff] focus:outline-none bg-white"
                   />
                 </div>
                 <div>
-                  <span className="text-slate-400 block mb-0.5">End Date</span>
+                  <span className="text-slate-400 block mb-0.5 font-medium">End Date</span>
                   <input 
                     type="date"
                     value={durationEnd}
                     onChange={(e) => setDurationEnd(e.target.value)}
-                    className="w-full text-xs h-7 px-1.5 border border-[#d9d9d9] rounded hover:border-[#4096ff] focus:outline-none"
+                    className="w-full text-xs h-7 px-1.5 border border-[#d9d9d9] rounded hover:border-[#4096ff] focus:outline-none bg-white"
                   />
                 </div>
               </div>
 
-              {/* Page 1 UX: Sort on Voucher Number and Date */}
               <div className="flex items-center justify-between gap-2 text-[11px] pt-1">
                 <div className="flex items-center gap-1.5">
                   <span className="text-[#8c8c8c]">Sort Field:</span>
@@ -914,7 +626,6 @@ export default function VoucherValidationView({
                 </div>
               </div>
 
-              {/* Segmented status filter tabs with count indicators */}
               <div className="flex bg-[#f5f5f5] p-0.5 rounded-[4px] gap-0.5 text-[10px] w-full shrink-0 overflow-x-auto scrollbar-none">
                 {(['All', 'Pending', 'Approved', 'Revision Required', 'Rejected'] as const).map((tab) => {
                   const isActive = statusFilter === tab;
@@ -925,7 +636,7 @@ export default function VoucherValidationView({
                       onClick={() => setStatusFilter(tab)}
                       className={`flex-1 text-center py-1 px-1 rounded-[3px] font-medium transition duration-200 whitespace-nowrap cursor-pointer ${
                         isActive
-                          ? 'bg-white text-[#1677ff] shadow-[0_1px_3px_rgba(0,0,0,0.09)]'
+                          ? 'bg-white text-[#1677ff] shadow-[0_1px_3px_rgba(0,0,0,0.09)] font-semibold'
                           : 'text-[#595959] hover:text-[#262626]'
                       }`}
                     >
@@ -936,7 +647,7 @@ export default function VoucherValidationView({
               </div>
             </div>
 
-            {/* List Table container (Page 1 specifications) */}
+            {/* GRV Table Grid list */}
             <div className="flex-1 bg-white overflow-hidden">
               <Table
                 dataSource={filteredGrvs.map(t => ({ ...t, key: t.id }))}
@@ -948,17 +659,15 @@ export default function VoucherValidationView({
                   showTotal: (total) => `${total} items`
                 }}
                 onRow={(record) => ({
-                  onClick: () => {
-                    setSelectedGrvId(record.id);
-                  },
+                  onClick: () => setSelectedGrvId(record.id),
                 })}
                 showHeader={false}
                 rowClassName={(record) => `cursor-pointer transition select-none ${selectedGrvId === record.id ? 'bg-[#e6f4ff]' : ''}`}
                 locale={{
                   emptyText: (
                     <div className="p-12 text-center text-[#8c8c8c] text-xs font-normal">
-                      <AlertTriangle className="mx-auto text-slate-300 mb-2" size={18} />
-                      <span>No registered vouchers found.</span>
+                      <AlertTriangle className="mx-auto text-slate-350 mb-2" size={18} />
+                      <span>No registered elements found in this category.</span>
                     </div>
                   )
                 }}
@@ -967,300 +676,297 @@ export default function VoucherValidationView({
             </div>
           </Sider>
 
-          {/* A2. Detailed 3-Way Reconciliation Card */}
-          <div className="lg:col-span-7 flex flex-col bg-white border border-[#f0f0f0] rounded-[6px] shadow-sm overflow-hidden h-[620px]">
+          {/* GRV Audit panel */}
+          <div className="flex-1 flex flex-col bg-white border border-[#f0f0f0] rounded-[6px] shadow-sm overflow-hidden h-[620px]">
             {selectedGrvId ? (
-              <div className="h-full flex flex-col justify-between">
+              <div className="h-full flex flex-col justify-between text-left">
                 
-                {/* Header detail */}
+                {/* Header panel descriptor */}
                 <div className="p-4 border-b border-[#f0f0f0] bg-white flex flex-wrap items-center justify-between gap-3 text-left">
                   <div>
-                    <h4 className="text-sm font-semibold text-[#262626]">3-Way Audit Panel: {activeGrv?.grnSivNo}</h4>
-                    <p className="text-xs text-[#8c8c8c] mt-0.5">Check material actual measurements against purchase contract rates.</p>
+                    <h4 className="text-sm font-bold text-[#1f1f1f]">Warehouse Delivery Verification Desk</h4>
+                    <p className="text-xs text-[#8c8c8c] mt-0.5">Physical sheet presentation matched with purchase orders.</p>
                   </div>
-                  
-                  {/* Select PO to evaluate against */}
-                  <div className="flex items-center gap-2">
-                    <span className="text-[#8c8c8c] text-xs">Verify against:</span>
-                    <select
-                      value={selectedPoId || ''}
-                      onChange={(e) => setSelectedPoId(e.target.value || null)}
-                      className="h-8 pl-2 pr-7 bg-white border border-[#d9d9d9] hover:border-[#4096ff] focus:border-[#4096ff] rounded-[4px] font-medium text-[#1677ff] focus:outline-none cursor-pointer text-xs custom-select-arrow"
+                  <div>
+                    <button
+                      onClick={() => window.print()}
+                      className="px-3.5 h-7.5 border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-semibold rounded shadow-3xs flex items-center justify-center gap-1.5 cursor-pointer select-none transition"
                     >
-                      <option value="">-- Manual Selection --</option>
-                      {purchaseOrders.map(po => (
-                        <option key={po.id} value={po.id}>
-                          PO-{po.poNumber} ({po.supplierName})
-                        </option>
-                      ))}
-                    </select>
+                      <Printer size={12} strokeWidth={2.5} />
+                      <span>Print Sheet Document</span>
+                    </button>
                   </div>
                 </div>
 
-                {/* Detailed checklist */}
-                <div className="p-4 flex-1 overflow-y-auto bg-white space-y-4">
-                  {activePo ? (
-                    <div className="space-y-4">
-                      
-                      {/* Flow direction context */}
-                      <div className="flex flex-wrap items-center justify-between border-b border-[#f0f0f0] pb-2.5 gap-2">
-                        <div className="text-left">
-                          <span className="text-[10px] text-[#8c8c8c] block font-bold uppercase tracking-wider">Audit Stream</span>
-                          <div className="flex items-center gap-1.5 mt-0.5 text-xs font-medium text-[#262626]">
-                            <span className="font-semibold text-slate-800">{activePo.supplierName}</span>
-                            <span className="text-[#d9d9d9]">•</span>
-                            <span className="font-mono text-[#1677ff]">PO-{activePo.poNumber}</span>
-                            <span className="text-[#d9d9d9]">•</span>
-                            <span className="font-mono text-slate-500">{activeGrv?.grnSivNo}</span>
+                {/* Main panel scroll view */}
+                <div id="grv-print-sheet" className="p-6 flex-1 overflow-y-auto space-y-6">
+                  
+                  {/* Ledger header */}
+                  <div className="p-5 border border-[#eaeaea] rounded-[8px] bg-slate-50/40 relative">
+                    <div className="absolute right-4 top-4">
+                      {activeGrv?.qaStatus === 'Approved' ? (
+                        <div className="flex items-center gap-1 text-emerald-600 bg-emerald-50 px-3 py-1 border border-emerald-200 rounded-[4px] text-[10px] font-bold uppercase tracking-wider">
+                          <CheckCircle size={14} />
+                          <span>Cleared & Posted</span>
+                        </div>
+                      ) : activeGrv?.qaStatus === 'Revision Required' ? (
+                        <div className="flex items-center gap-1 text-amber-600 bg-amber-50 px-3 py-1 border border-amber-200 rounded-[4px] text-[10px] font-semibold uppercase tracking-wider">
+                          <Clock size={14} />
+                          <span>Review Requested</span>
+                        </div>
+                      ) : activeGrv?.qaStatus === 'Rejected' ? (
+                        <div className="flex items-center gap-1 text-red-600 bg-red-50 px-3 py-1 border border-red-200 rounded-[4px] text-[10px] font-bold uppercase tracking-wider">
+                          <XCircle size={14} />
+                          <span>Rejected</span>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-1 text-blue-600 bg-blue-50 px-3 py-1 border border-blue-200 rounded-[4px] text-[10px] font-semibold uppercase tracking-wider">
+                          <SlidersHorizontal size={14} />
+                          <span>Pending Verification</span>
+                        </div>
+                      )}
+                    </div>
+
+                    <h5 className="text-xs font-bold text-slate-400 uppercase tracking-widest leading-none mb-4">Voucher Metadata</h5>
+                    
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-xs font-medium">
+                      <div className="flex flex-col gap-1">
+                        <span className="text-slate-400">Voucher Number</span>
+                        <span className="text-slate-800 font-bold font-mono text-sm">{activeGrv?.grnSivNo}</span>
+                      </div>
+                      <div className="flex flex-col gap-1">
+                        <span className="text-slate-400">Date Logged</span>
+                        <span className="text-slate-800 font-bold font-mono">{activeGrv?.date}</span>
+                      </div>
+                      <div className="flex flex-col gap-1">
+                        <span className="text-slate-400">Assigned Dispatcher</span>
+                        <span className="text-slate-800 font-bold">{activeGrv?.signature || 'SK-Desk'}</span>
+                      </div>
+                      <div className="flex flex-col gap-1">
+                        <span className="text-slate-400">Linked PO</span>
+                        <span className="text-[#033096] font-bold font-mono underline decoration-dashed">
+                          {activePo ? activePo.poNumber : 'No Matching PO Found'}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Dual side-by-side verification block */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-5 select-none">
+                    
+                    {/* Left block (Physical delivery voucher) */}
+                    <div className="p-4 bg-white border border-slate-200 rounded-[6px] space-y-4">
+                      <div className="flex items-center gap-1.5 pb-2 border-b border-slate-100">
+                        <FileText size={14} className="text-blue-650" />
+                        <span className="text-xs font-bold text-slate-700 uppercase tracking-wider">Warehouse Delivery Receipt</span>
+                      </div>
+
+                      <div className="space-y-3.5 text-xs font-medium">
+                        <div className="flex justify-between items-center py-1 border-b border-slate-50">
+                          <span className="text-slate-400">Registered Material:</span>
+                          <span className="text-slate-800 font-bold max-w-[150px] truncate">{grvMaterial?.description || 'Uncoded'}</span>
+                        </div>
+                        <div className="flex justify-between items-center py-1 border-b border-slate-50">
+                          <span className="text-slate-400">Dispatch Unit:</span>
+                          <span className="text-slate-800 font-bold uppercase">{grvMaterial?.unit || 'Pcs'}</span>
+                        </div>
+                        <div className="flex justify-between items-center py-1 border-b border-slate-50">
+                          <span className="text-slate-400">Physical Received Qty:</span>
+                          <span className="text-[#033096] font-extrabold text-sm font-mono">{grvQty.toLocaleString()}</span>
+                        </div>
+                        <div className="flex justify-between items-center py-1 border-b border-slate-50">
+                          <span className="text-slate-400">Voucher Unit Price:</span>
+                          <span className="text-slate-800 font-bold font-mono">{grvPrice.toLocaleString()} ETB</span>
+                        </div>
+                        <div className="flex justify-between items-center pt-1.5 text-[#1a1a1a]">
+                          <span className="font-semibold text-slate-500">Gross Received Outlay:</span>
+                          <span className="font-extrabold font-mono text-base">{grvTotal.toLocaleString()} ETB</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Right block (Linked PO spec sheet) */}
+                    <div className="p-4 bg-white border border-slate-200 rounded-[6px] space-y-4">
+                      <div className="flex items-center gap-1.5 pb-2 border-b border-slate-100">
+                        <CheckCircle className="text-slate-400" size={14} />
+                        <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Purchase Order Sheet (Spec)</span>
+                      </div>
+
+                      {activePo ? (
+                        <div className="space-y-3.5 text-xs font-medium">
+                          <div className="flex justify-between items-center py-1 border-b border-slate-50">
+                            <span className="text-slate-400">Commercial Vendor:</span>
+                            <span className="text-slate-800 font-semibold max-w-[150px] truncate">{activePo.supplierName}</span>
+                          </div>
+                          <div className="flex justify-between items-center py-1 border-b border-slate-50">
+                            <span className="text-slate-400">PO Spec Descriptor:</span>
+                            <span className="text-slate-800 font-semibold max-w-[150px] truncate">{matchingPoItem?.description || 'Uncoded'}</span>
+                          </div>
+                          <div className="flex justify-between items-center py-1 border-b border-slate-50">
+                            <span className="text-slate-400">Authorized PO Target Qty:</span>
+                            <span className={`font-mono font-bold ${qtyMismatch ? 'text-amber-600' : 'text-slate-700'}`}>
+                              {poQty.toLocaleString()}
+                            </span>
+                          </div>
+                          <div className="flex justify-between items-center py-1 border-b border-slate-50">
+                            <span className="text-slate-400">PO Agreed Price:</span>
+                            <span className={`font-mono font-bold ${priceMismatch ? 'text-amber-600' : 'text-slate-700'}`}>
+                              {poPrice.toLocaleString()} ETB
+                            </span>
+                          </div>
+                          <div className="flex justify-between items-center pt-1.5 text-slate-500">
+                            <span>PO Promised Outlay:</span>
+                            <span className="font-bold font-mono text-slate-800">{poTotal.toLocaleString()} ETB</span>
                           </div>
                         </div>
-                        
-                        <div className="text-right">
-                          <span className="text-[10px] text-[#8c8c8c] block font-bold uppercase tracking-wider">Results</span>
-                          {qtyMismatch || priceMismatch ? (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-[#fff1f0] border border-[#ffccc7] rounded-[4px] text-[10px] font-semibold text-[#ff4d4f] mt-0.5">
-                              <AlertTriangle size={11} /> Variance Detected
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-[#f6ffed] border border-[#b7eb8f] rounded-[4px] text-[10px] font-semibold text-[#52c41a] mt-0.5">
-                              <Check size={11} /> Ledger Balanced
-                            </span>
-                          )}
+                      ) : (
+                        <div className="h-[150px] flex items-center justify-center text-center p-4">
+                          <p className="text-xs text-slate-400 italic">No corresponding purchase order matches this delivery ticket.</p>
                         </div>
-                      </div>
-
-                      {/* Material info */}
-                      <div className="p-3 bg-slate-50 rounded border border-[#f0f0f0] text-xs">
-                        <span className="text-[#8c8c8c] block text-[10px] uppercase font-bold tracking-wider mb-1">Assigned Material Item Summary</span>
-                        <div className="flex justify-between font-semibold text-[#262626]">
-                          <span>{grvMaterial?.description || 'Loading item...'}</span>
-                          <span className="font-mono bg-white px-1.5 py-0.5 rounded border border-[#d9d9d9] text-[10px] text-slate-500">
-                            Code: {grvMaterial?.code}
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* Metric Variance table */}
-                      <div className="border border-[#f0f0f0] rounded-[6px] overflow-hidden">
-                        <table className="w-full text-xs text-left">
-                          <thead>
-                            <tr className="bg-[#fafafa] border-b border-[#f0f0f0] text-[#262626] font-medium">
-                              <th className="p-2.5 pl-3">Matched Metric</th>
-                              <th className="p-2.5 text-right">PO (Standard)</th>
-                              <th className="p-2.5 text-right">GRV (Actual)</th>
-                              <th className="p-2.5 text-right">Variance</th>
-                              <th className="p-2.5 text-center pr-3">Status</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-[#f0f0f0]">
-                            
-                            {/* Quantity Row */}
-                            <tr className="hover:bg-[#fafafa] transition">
-                              <td className="p-2.5 pl-3 text-slate-700">Received Quantity</td>
-                              <td className="p-2.5 text-right font-mono text-slate-900">{poQty} {matchingPoItem?.unit || 'Units'}</td>
-                              <td className="p-2.5 text-right font-mono text-slate-900">{grvQty} {grvMaterial?.unit || 'Units'}</td>
-                              <td className={`p-2.5 text-right font-mono font-medium ${qtyMismatch ? 'text-[#faad14]' : 'text-slate-500'}`}>
-                                {qtyDiff > 0 ? `+${qtyDiff}` : qtyDiff}
-                              </td>
-                              <td className="p-2.5 text-center pr-3">
-                                {qtyMismatch ? (
-                                  <span className="inline-block px-1.5 py-0.5 bg-[#fffbe6] text-[#faad14] rounded border border-[#ffe58f] text-[9px] font-semibold">Mismatch</span>
-                                ) : (
-                                  <span className="inline-block px-1.5 py-0.5 bg-[#f6ffed] text-[#52c41a] rounded border border-[#b7eb8f] text-[9px] font-semibold">Passed</span>
-                                )}
-                              </td>
-                            </tr>
-
-                            {/* Cost Row */}
-                            <tr className="hover:bg-[#fafafa] transition">
-                              <td className="p-2.5 pl-3 text-slate-700">Contract Rate (ETB)</td>
-                              <td className="p-2.5 text-right font-mono text-slate-900">{poPrice.toLocaleString()}</td>
-                              <td className="p-2.5 text-right font-mono text-slate-900">{grvPrice.toLocaleString()}</td>
-                              <td className={`p-2.5 text-right font-mono font-medium ${priceMismatch ? 'text-[#ff4d4f]' : 'text-slate-500'}`}>
-                                {priceDiff > 0 ? `+${priceDiff.toLocaleString()}` : priceDiff.toLocaleString()}
-                              </td>
-                              <td className="p-2.5 text-center pr-3">
-                                {priceMismatch ? (
-                                  <span className="inline-block px-1.5 py-0.5 bg-[#fff1f0] text-[#ff4d4f] rounded border border-[#ffccc7] text-[9px] font-semibold">Rate Diff</span>
-                                ) : (
-                                  <span className="inline-block px-1.5 py-0.5 bg-[#f6ffed] text-[#52c41a] rounded border border-[#b7eb8f] text-[9px] font-semibold">Passed</span>
-                                )}
-                              </td>
-                            </tr>
-
-                            {/* Aggregated totals */}
-                            <tr className="hover:bg-[#fafafa] bg-[#fafafa]/50 transition">
-                              <td className="p-2.5 pl-3 font-semibold text-[#1f1f1f]">Aggregate Financial Total</td>
-                              <td className="p-2.5 text-right font-semibold text-[#1f1f1f] font-mono">{(poTotal).toLocaleString()} ETB</td>
-                              <td className="p-2.5 text-right font-semibold text-[#1f1f1f] font-mono">{(grvTotal).toLocaleString()} ETB</td>
-                              <td className={`p-2.5 text-right font-semibold font-mono ${qtyMismatch || priceMismatch ? 'text-[#ff4d4f]' : 'text-slate-500'}`}>
-                                {totalDiff > 0 ? `+${totalDiff.toLocaleString()}` : totalDiff.toLocaleString()} ETB
-                              </td>
-                              <td className="p-2.5 text-center pr-3">
-                                {qtyMismatch || priceMismatch ? (
-                                  <span className="inline-block px-1.5 py-0.5 bg-[#fff1f0] text-[#ff4d4f] rounded border border-[#ffccc7] text-[9px] font-semibold block uppercase">Unbalanced</span>
-                                ) : (
-                                  <span className="inline-block px-1.5 py-0.5 bg-[#f6ffed] text-[#52c41a] rounded border border-[#b7eb8f] text-[9px] font-semibold block uppercase">Matched</span>
-                                )}
-                              </td>
-                            </tr>
-
-                          </tbody>
-                        </table>
-                      </div>
+                      )}
                     </div>
-                  ) : (
-                    <div className="py-20 text-center text-[#8c8c8c] text-xs font-normal flex flex-col items-center justify-center gap-2.5 border border-dashed border-[#d9d9d9] rounded-[8px] bg-[#fafafa]">
-                      <AlertTriangle className="text-[#faad14]" size={24} />
-                      <span className="text-slate-500 font-medium max-w-sm">Link an authorized purchase contract order in the selection menu above to calculate 3-way reconciliation variables.</span>
+
+                  </div>
+
+                  {/* Discrepancy indicator panels */}
+                  {activePo && (qtyMismatch || priceMismatch) && (
+                    <div className="p-3.5 bg-amber-50 rounded-lg border border-amber-200/60 font-medium text-xs text-amber-800 leading-relaxed flex items-start gap-2.5">
+                      <AlertTriangle size={15} className="shrink-0 text-amber-600 mt-0.5" />
+                      <div className="space-y-1">
+                        <span className="block font-bold text-[11px] uppercase tracking-wider text-amber-700">Audit Alert: Commercial Discrepancy Detected</span>
+                        <span className="block text-slate-650">
+                          The delivery voucher values differ from the commercial purchase order targets. Review details:
+                        </span>
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-3.5 pt-1.5">
+                          {qtyMismatch && (
+                            <div className="flex flex-col">
+                              <span className="text-[10px] text-slate-400 uppercase tracking-tight">Quantity Shortfall:</span>
+                              <span className="font-extrabold font-mono text-sm leading-none pt-1">
+                                {qtyDiff > 0 ? `+${qtyDiff}` : qtyDiff} {grvMaterial?.unit}
+                              </span>
+                            </div>
+                          )}
+                          {priceMismatch && (
+                            <div className="flex flex-col">
+                              <span className="text-[10px] text-slate-400 uppercase tracking-tight">Agreed Price Delta:</span>
+                              <span className="font-extrabold font-mono text-sm leading-none pt-1">
+                                {priceDiff > 0 ? `+${priceDiff.toLocaleString()}` : priceDiff.toLocaleString()} ETB
+                              </span>
+                            </div>
+                          )}
+                          <div className="flex flex-col">
+                            <span className="text-[10px] text-slate-400 uppercase tracking-tight">Financial Imbalance:</span>
+                            <span className={`font-extrabold font-mono text-sm leading-none pt-1 ${totalDiff > 0 ? 'text-red-650' : 'text-emerald-750'}`}>
+                              {totalDiff > 0 ? `+${totalDiff.toLocaleString()}` : totalDiff.toLocaleString()} ETB
+                            </span>
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   )}
+
+                  {/* QA AUDIT SUMMARY REPORT BANNER */}
+                  {activeGrv?.qaStatus && (
+                    <div className="p-3.5 bg-slate-50 border border-slate-150 rounded-lg text-xs space-y-2 select-text font-medium text-slate-800">
+                      <div className="flex items-center justify-between pb-1.5 border-b border-slate-200">
+                        <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">QA Verification Review Ledger</span>
+                        <span className="inline-flex items-center text-[10.5px] font-bold bg-white px-2 py-0.5 border rounded">
+                          Signed: {systemUsers.find(u => u.id === activeGrv.qaApprovedById)?.name || 'QA Auditor'}
+                        </span>
+                      </div>
+                      <div className="flex flex-col gap-1">
+                        <span className="text-slate-400">Auditor Status Notes:</span>
+                        <span className="text-slate-700 italic">"{activeGrv.qaRemark || 'Verified for inventory card posting.'}"</span>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Verification comments input block */}
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center select-none">
+                      <span className="text-xs font-bold text-slate-450 uppercase tracking-wider">Auditor Validation Comments</span>
+                      <span className="text-[10px] text-slate-400 italic">Comments required for rejections or corrections.</span>
+                    </div>
+                    <div className="relative">
+                      <span className="absolute left-3 top-3.5 text-slate-400">
+                        <MessageSquare size={13} />
+                      </span>
+                      <textarea
+                        value={remarksText}
+                        onChange={(e) => setRemarksText(e.target.value)}
+                        placeholder="Type verification notes (e.g. quantity shortfall notes, packing seal verification logs, matching OK...)"
+                        rows={3}
+                        className="w-full text-xs p-3 pl-8.5 text-slate-750 bg-white border border-[#d3d3d3] rounded-[6px] hover:border-[#4096ff] focus:border-[#4096ff] focus:shadow-[0_0_0_2px_rgba(22,119,255,0.06)] outline-none resize-none transition"
+                      />
+                    </div>
+                  </div>
+
                 </div>
 
-                {/* Audit Action panel at bottom of validation card */}
-                <div className="bg-[#fafafa] border-t border-[#f0f0f0] p-3.5 text-left text-xs">
-                  {activeGrv?.qaApprovedById || activeGrv?.qaStatus === 'Rejected' || activeGrv?.qaStatus === 'Revision Required' ? (
-                    <div className={`border rounded-[6px] p-3 flex flex-wrap items-center justify-between gap-3 ${
-                      activeGrv.qaStatus === 'Approved'
-                        ? 'bg-[#f6ffed] border-[#b7eb8f]'
-                        : activeGrv.qaStatus === 'Revision Required'
-                        ? 'bg-[#fff2e8] border-[#ffd8bf]'
-                        : 'bg-[#fff1f0] border-[#ffccc7]'
-                    }`}>
-                      <div className="flex items-center gap-2.5">
-                        {activeGrv.qaStatus === 'Approved' ? (
-                          <CheckCircle2 size={16} className="text-[#52c41a]" />
-                        ) : activeGrv.qaStatus === 'Revision Required' ? (
-                          <RefreshCw size={14} className="text-[#fa541c]" />
-                        ) : (
-                          <XCircle size={16} className="text-[#ff4d4f]" />
-                        )}
-                        <div>
-                          <span className="text-slate-900 font-semibold mr-1.5">
-                            {activeGrv.qaStatus === 'Approved' ? 'Ledger Posted' : activeGrv.qaStatus === 'Revision Required' ? 'Revision Pending' : 'Ledger Rejected'}
-                          </span>
-                          <span className="text-[#595959] text-[11px] italic">"{activeGrv.qaRemark}"</span>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-4">
-                        <span className="text-[10px] text-[#8c8c8c] font-medium font-mono">
-                          Auditor: {systemUsers.find(u => u.id === activeGrv.qaApprovedById)?.name || 'Audit Officer'}
-                        </span>
-                        
-                        <button
-                          onClick={() => handleRevertStatus(activeGrv)}
-                          className="text-[#1677ff] hover:text-[#4096ff] font-medium flex items-center gap-1 cursor-pointer text-xs"
-                        >
-                          <RefreshCw size={11} className="transition duration-300 hover:rotate-180" />
-                          <span>Unlock Ledger</span>
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="space-y-3">
-                      <div className="flex gap-2">
-                        <div className="flex-1 relative">
-                          <span className="absolute inset-y-0 left-3 flex items-center text-slate-400 pointer-events-none">
-                            <MessageSquare size={12} />
-                          </span>
-                          <input
-                            type="text"
-                            value={remarksText}
-                            onChange={(e) => setRemarksText(e.target.value)}
-                            placeholder="Audit sign-off remarks/justifications (Required for rejections or corrections)..."
-                            className="w-full h-8 pl-8 pr-3 text-xs text-[#262626] bg-white border border-[#d9d9d9] rounded-[4px] hover:border-[#4096ff] focus:border-[#4096ff] outline-none transition duration-200 shadow-3xs"
-                          />
-                        </div>
-
-                        <div className="flex items-center gap-1 bg-white border border-[#d9d9d9] hover:border-[#4096ff] px-2 rounded-[4px] h-8 shadow-3xs hover:cursor-pointer">
-                          <User size={12} className="text-slate-450" />
-                          <select
-                            value={activeUserId}
-                            onChange={(e) => setActiveUserId(e.target.value)}
-                            className="h-full bg-transparent border-none text-[11px] font-medium focus:outline-none text-slate-750 cursor-pointer custom-select-arrow"
-                          >
-                            {systemUsers.map(u => (
-                              <option key={u.id} value={u.id}>{u.name} ({u.role.split(' ')[0]})</option>
-                            ))}
-                          </select>
-                        </div>
-                      </div>
-
-                      {/* Reconciliation controls */}
-                      <div className="flex justify-end gap-2 pt-0.5">
-                        <button
-                          type="button"
-                          onClick={handleReject}
-                          className="h-8 px-4 bg-[#ff4d4f] hover:bg-[#ff7875] text-white rounded-[4px] text-xs font-medium border border-[#ff4d4f] hover:border-[#ff7875] flex items-center gap-1 cursor-pointer transition active:scale-95 shadow-3xs"
-                          title="Reject the ledger alignment completely"
-                        >
-                          <X size={13} strokeWidth={2.5} />
-                          <span>Reject</span>
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={handleRequestRevision}
-                          className="h-8 px-4 bg-white hover:text-[#fa541c] hover:border-[#ffd8bf] hover:bg-[#fff2e8] border border-[#d9d9d9] text-[#595959] rounded-[4px] text-xs font-medium cursor-pointer transition active:scale-95"
-                          title="Flag corrections on measurement records of voucher"
-                        >
-                          <RefreshCw size={11} strokeWidth={2.5} />
-                          <span>Request Revision</span>
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={handleApprove}
-                          className="h-8 px-5 bg-[#1677ff] hover:bg-[#4096ff] text-white rounded-[4px] text-xs font-medium flex items-center gap-1 cursor-pointer transition active:scale-95 shadow-sm"
-                          title="Approve measurements and post aggregate updates directly to bin inventory"
-                        >
-                          <Check size={13} strokeWidth={2.5} />
-                          <span>Approve & Post Ledger</span>
-                        </button>
-                      </div>
-                    </div>
-                  )}
+                {/* Footnotes and actions */}
+                <div className="p-4 bg-[#fafafa] border-t border-[#f0f0f0] flex flex-wrap items-center justify-between gap-3 no-print">
+                  <div className="text-[11px] text-slate-400 select-none">
+                    Session User: <b>{currentUserObj?.name}</b> (Role: <span className="font-semibold text-slate-450">{currentUserObj?.role}</span>)
+                  </div>
+                  
+                  <div className="flex items-center gap-2 select-none">
+                    <button
+                      type="button"
+                      onClick={handleRequestRevision}
+                      className="h-8 px-4 border border-amber-300 hover:bg-amber-50 text-amber-700 rounded-[4px] text-xs font-semibold flex items-center gap-1 cursor-pointer transition active:scale-95 bg-white shadow-3xs"
+                    >
+                      <Clock size={13} strokeWidth={2.5} />
+                      <span>Request Revision</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleReject}
+                      className="h-8 px-4 border border-red-200 hover:bg-red-50 text-red-600 rounded-[4px] text-xs font-semibold flex items-center gap-1 cursor-pointer transition active:scale-95 bg-white shadow-3xs"
+                    >
+                      <X size={13} strokeWidth={2.5} />
+                      <span>Reject Voucher</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleApprove}
+                      style={{ backgroundColor: '#2f8132', borderColor: '#2f8132' }}
+                      className="h-8 px-5 bg-emerald-650 hover:bg-emerald-700 text-white rounded-[4px] text-xs font-bold flex items-center gap-1 cursor-pointer transition active:scale-95 shadow-down"
+                    >
+                      <Check size={13} strokeWidth={2.5} />
+                      <span>Approve & Post GRV</span>
+                    </button>
+                  </div>
                 </div>
 
               </div>
             ) : (
-              <div className="flex-1 flex flex-col items-center justify-center p-12 text-center bg-white">
-                <FileText size={44} className="text-slate-300 mb-4 animate-bounce" />
-                <h4 className="font-semibold text-[#262626] text-sm">3-Way Reconciliation View Desk</h4>
+              
+              /* NO SELECTED STATE (Initial Greeting desk) */
+              <div className="flex-1 flex flex-col items-center justify-center p-12 text-center bg-white no-print">
+                <FileText size={44} className="text-slate-200 mb-4 animate-pulse" />
+                <h4 className="font-semibold text-[#262626] text-sm">Goods Received Note Verification Desk</h4>
                 <p className="text-xs text-[#8c8c8c] mt-1 max-w-sm leading-normal">
-                  Select a registered voucher from the list index on the left to start checking, auditing, and approving 3-Way Reconciliation reports.
+                  Select a Goods Received Note (GRV) from the grouped navigational ledger on the left to verify signatures, audit physical quantities, or match purchase orders.
                 </p>
                 
-                <div className="mt-6 flex gap-2">
+                <div className="mt-6 flex gap-2 select-none">
                   <button 
                     onClick={() => {
                       if (filteredGrvs.length > 0) {
                         setSelectedGrvId(filteredGrvs[0].id);
                       }
                     }}
-                    className="h-8 px-4 bg-slate-50 hover:bg-slate-100 border border-[#d9d9d9] text-[#262626] text-xs font-medium rounded transition cursor-pointer"
+                    className="h-8.5 px-4 bg-slate-50 hover:bg-slate-100 border border-[#d9d9d9] text-[#262626] text-xs font-semibold rounded-lg transition cursor-pointer"
                   >
                     Quick Select First
                   </button>
                 </div>
               </div>
             )}
-          </div>
 
-        </Layout>
+         </div>
 
-
-
-
-
-
-
-
-
-
-
-
+      </Layout>
 
     </div>
   );

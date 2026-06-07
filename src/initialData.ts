@@ -356,5 +356,67 @@ export const INITIAL_POS: PurchaseOrder[] = [
   }
 ];
 
+export const INITIAL_TRANSFERS: any[] = [
+  {
+    id: 'ist-seed-1',
+    transferNo: 'STV-290041',
+    date: '2026-05-28',
+    fromStoreId: 'store-1',
+    toStoreId: 'store-2',
+    project: 'Allura HQ Bole Bridge development',
+    requisitionNo: 'MR-4903',
+    shippedBy: 'Semere Tesfaye',
+    plateNo: 'AA-3-B45920',
+    telephoneNo: '+251 911 349102',
+    items: [
+      {
+        id: 'ist-item-seed-1',
+        materialId: 'mat-1',
+        code: '0001',
+        description: 'OPC Cement Grade 42.5R (Dergba)',
+        unit: 'Quintal',
+        quantity: 15,
+        unitPrice: 850,
+        remark: 'Urgent concrete pouring supplement'
+      }
+    ],
+    requestedById: 'usr-5', // Solomon Kassa (Warehouse Manager)
+    approvedById: 'usr-7', // Selamawit Dawit (PM)
+    issuedById: 'usr-1', // Abebe Bekele (Stock Controller)
+    status: 'Completed',
+    createdAt: '2026-05-28T09:30:00Z'
+  },
+  {
+    id: 'ist-seed-2',
+    transferNo: 'STV-184912',
+    date: '2026-06-02',
+    fromStoreId: 'store-1',
+    toStoreId: 'store-3',
+    project: 'Lideta commercial plaza foundations',
+    requisitionNo: 'MR-1084',
+    shippedBy: 'Belayneh Gizaw',
+    plateNo: 'ET-3-A11045',
+    telephoneNo: '+251 920 845943',
+    items: [
+      {
+        id: 'ist-item-seed-2',
+        materialId: 'mat-2',
+        code: '0002',
+        description: 'Fine Aggregates (Coarse Sand)',
+        unit: 'M³',
+        quantity: 20,
+        unitPrice: 1400,
+        remark: 'Replenish dry-mix stock line'
+      }
+    ],
+    requestedById: 'usr-5',
+    approvedById: 'usr-7',
+    issuedById: 'usr-1',
+    status: 'Draft',
+    createdAt: '2026-06-02T14:15:00.000Z'
+  }
+];
+
+
 
 

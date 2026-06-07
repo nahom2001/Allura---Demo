@@ -155,3 +155,34 @@ export interface PurchaseOrder {
   createdAt: string;
 }
 
+export interface InterStoreTransferItem {
+  id: string;
+  materialId: string; // Source material Id
+  code: string;
+  description: string;
+  unit: string;
+  quantity: number;
+  unitPrice: number;
+  remark?: string;
+}
+
+export interface InterStoreTransfer {
+  id: string;
+  transferNo: string; // e.g. IST-1234
+  date: string;
+  fromStoreId: string;
+  toStoreId: string;
+  project: string;
+  requisitionNo: string;
+  shippedBy: string;
+  plateNo: string;
+  telephoneNo: string;
+  items: InterStoreTransferItem[];
+  requestedById: string;
+  approvedById: string;
+  issuedById: string;
+  status: 'Draft' | 'Completed';
+  createdAt: string;
+}
+
+

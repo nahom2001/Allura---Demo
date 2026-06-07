@@ -27,8 +27,8 @@ import {
   Download
 } from 'lucide-react';
 
-import { Store, Material, MaterialCategory, BinCardTransaction, SystemUser, Supplier, PurchaseRequisition, PurchaseEvaluation, PurchaseOrder } from './types';
-import { INITIAL_STORES, INITIAL_MATERIALS, INITIAL_USERS, INITIAL_SUPPLIERS, INITIAL_PRS, INITIAL_EVALUATIONS, INITIAL_POS } from './initialData';
+import { Store, Material, MaterialCategory, BinCardTransaction, SystemUser, Supplier, PurchaseRequisition, PurchaseEvaluation, PurchaseOrder, InterStoreTransfer } from './types';
+import { INITIAL_STORES, INITIAL_MATERIALS, INITIAL_USERS, INITIAL_SUPPLIERS, INITIAL_PRS, INITIAL_EVALUATIONS, INITIAL_POS, INITIAL_TRANSFERS } from './initialData';
 import ConDigitalHeader from './components/ConDigitalHeader';
 import StoreModal from './components/StoreModal';
 import MaterialModal from './components/MaterialModal';
@@ -39,6 +39,8 @@ import SupplierView from './components/SupplierView';
 import GRVModal from './components/GRVModal';
 import SIVModal from './components/SIVModal';
 import VoucherValidationView from './components/VoucherValidationView';
+import InterStoreTransferView from './components/InterStoreTransferView';
+
 
 function generateDefaultTransactions(): BinCardTransaction[] {
   const seeds: BinCardTransaction[] = [];
@@ -231,6 +233,13 @@ export default function App() {
     return saved ? JSON.parse(saved) : INITIAL_POS;
   });
 
+  // Load inter-store transfers
+  const [transfers, setTransfers] = useState<InterStoreTransfer[]>(() => {
+    const saved = localStorage.getItem('condigital_transfers');
+    return saved ? JSON.parse(saved) : INITIAL_TRANSFERS;
+  });
+
+
   const [selectedStoreId, setSelectedStoreId] = useState<string>('all');
   const [storeSearchQuery, setStoreSearchQuery] = useState('');
   const [materialSearchQuery, setMaterialSearchQuery] = useState('');
@@ -288,6 +297,11 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem('condigital_bin_transactions', JSON.stringify(binTransactions));
   }, [binTransactions]);
+
+  useEffect(() => {
+    localStorage.setItem('condigital_transfers', JSON.stringify(transfers));
+  }, [transfers]);
+
 
   // Synchronize Header sub-tabs selection with the Store filter state
   const handleSubTabChange = (tabName: string) => {
@@ -596,7 +610,10 @@ export default function App() {
     const materialId = updatedTx.materialId;
 
     setBinTransactions(prev => {
-      const updated = prev.map(t => t.id === updatedTx.id ? updatedTx : t);
+      const exists = prev.some(t => t.id === updatedTx.id);
+      const updated = exists 
+        ? prev.map(t => t.id === updatedTx.id ? updatedTx : t)
+        : [...prev, updatedTx];
       const materialTxs = updated.filter(t => t.materialId === materialId).sort((a, b) => a.date.localeCompare(b.date));
       
       let rolling = 0;
@@ -720,6 +737,131 @@ export default function App() {
     setSuppliers(prev => prev.filter(s => s.id !== supId));
   };
 
+  // Inter-store transfer handlers
+  const handleSaveTransfer = (savedTransfer: InterStoreTransfer) => {
+    setTransfers(prev => {
+      const exists = prev.some(t => t.id === savedTransfer.id);
+      if (exists) {
+        return prev.map(t => t.id === savedTransfer.id ? savedTransfer : t);
+      } else {
+        return [...prev, savedTransfer];
+      }
+    });
+
+    if (savedTransfer.status === 'Completed') {
+      const fromStoreObj = stores.find(s => s.id === savedTransfer.fromStoreId);
+      const toStoreObj = stores.find(s => s.id === savedTransfer.toStoreId);
+      const fromStoreName = fromStoreObj ? fromStoreObj.name : 'Origin Stockyard';
+      const toStoreName = toStoreObj ? toStoreObj.name : 'Recipient Stockyard';
+
+      setBinTransactions(prevTxs => {
+        let updatedTxs = [...prevTxs];
+        let updatedMaterials = [...materials];
+
+        savedTransfer.items.forEach(item => {
+          const sourceMat = updatedMaterials.find(m => m.id === item.materialId);
+          if (!sourceMat) return;
+
+          // Outbound transaction for From Store
+          const outboundTx: BinCardTransaction = {
+            id: `tx-out-${savedTransfer.transferNo}-${item.id}`,
+            materialId: item.materialId,
+            date: savedTransfer.date,
+            grnSivNo: savedTransfer.transferNo,
+            transferredQty: item.quantity,
+            balance: 0,
+            unitPrice: item.unitPrice,
+            remark: `Inter-store transfer dispatched to "${toStoreName}" | Requisition: ${savedTransfer.requisitionNo}`,
+            signature: users.find(u => u.id === savedTransfer.issuedById)?.initials || 'SK'
+          };
+          updatedTxs.push(outboundTx);
+
+          // Find or create in memory matching material for To Store
+          let destMat = updatedMaterials.find(m => m.storeId === savedTransfer.toStoreId && m.code === sourceMat.code);
+          if (!destMat) {
+            const newMatId = `mat-autogen-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+            destMat = {
+              id: newMatId,
+              code: sourceMat.code,
+              category: sourceMat.category,
+              description: sourceMat.description,
+              unit: sourceMat.unit,
+              quantity: 0,
+              unitPrice: item.unitPrice,
+              storeId: savedTransfer.toStoreId,
+              createdAt: savedTransfer.date,
+              minimumStock: sourceMat.minimumStock || 25,
+              maximumStock: sourceMat.maximumStock || 500
+            };
+            updatedMaterials.push(destMat);
+          }
+
+          // Inbound transaction for To Store
+          const inboundTx: BinCardTransaction = {
+            id: `tx-in-${savedTransfer.transferNo}-${item.id}`,
+            materialId: destMat.id,
+            date: savedTransfer.date,
+            grnSivNo: savedTransfer.transferNo,
+            receivedQty: item.quantity,
+            balance: 0,
+            unitPrice: item.unitPrice,
+            remark: `Inter-store transfer received from "${fromStoreName}" | Requisition: ${savedTransfer.requisitionNo}`,
+            signature: users.find(u => u.id === savedTransfer.issuedById)?.initials || 'SK',
+            qaApprovedById: 'usr-7'
+          };
+          updatedTxs.push(inboundTx);
+        });
+
+        // Recompute materials list and balance parameters
+        const modifiedMaterialIds = new Set(savedTransfer.items.map(i => i.materialId));
+        savedTransfer.items.forEach(item => {
+          const sourceMat = materials.find(m => m.id === item.materialId);
+          if (sourceMat) {
+            const destMat = updatedMaterials.find(m => m.storeId === savedTransfer.toStoreId && m.code === sourceMat.code);
+            if (destMat) {
+              modifiedMaterialIds.add(destMat.id);
+            }
+          }
+        });
+
+        modifiedMaterialIds.forEach(mId => {
+          const materialTxs = updatedTxs.filter(t => t.materialId === mId).sort((a, b) => a.date.localeCompare(b.date));
+          let rolling = 0;
+          const recomputed = materialTxs.map(t => {
+            let delta = 0;
+            const approved = t.receivedQty === undefined || t.id.startsWith('seed-') || !!t.qaApprovedById;
+            if (approved) {
+              if (t.receivedQty !== undefined) delta = t.receivedQty;
+              else if (t.returnedQty !== undefined) delta = t.returnedQty;
+              else if (t.issuedQty !== undefined) delta = -t.issuedQty;
+              else if (t.transferredQty !== undefined) delta = -t.transferredQty;
+            } else {
+              if (t.returnedQty !== undefined) delta = t.returnedQty;
+              else if (t.issuedQty !== undefined) delta = -t.issuedQty;
+              else if (t.transferredQty !== undefined) delta = -t.transferredQty;
+            }
+            rolling += delta;
+            return { ...t, balance: rolling };
+          });
+
+          updatedTxs = [
+            ...updatedTxs.filter(t => t.materialId !== mId),
+            ...recomputed
+          ];
+
+          updatedMaterials = updatedMaterials.map(m => m.id === mId ? { ...m, quantity: rolling } : m);
+        });
+
+        setMaterials(updatedMaterials);
+        return updatedTxs.sort((a, b) => a.date.localeCompare(b.date));
+      });
+    }
+  };
+
+  const handleDeleteTransfer = (transferId: string) => {
+    setTransfers(prev => prev.filter(t => t.id !== transferId));
+  };
+
   // Safe data reset to default demo data
   const handleResetData = () => {
     if (window.confirm('Would you like to reset the dashboard database to the official ConDigital demo template (stores & materials)?')) {
@@ -730,6 +872,7 @@ export default function App() {
       setPurchaseRequisitions(INITIAL_PRS);
       setEvaluations(INITIAL_EVALUATIONS);
       setPurchaseOrders(INITIAL_POS);
+      setTransfers(INITIAL_TRANSFERS);
       setBinTransactions(generateDefaultTransactions());
       setSelectedStoreId('all');
       setStoreSearchQuery('');
@@ -738,6 +881,7 @@ export default function App() {
       setActiveSubTab('Material');
     }
   };
+
 
   // Filter stores for left sidebar list
   const filteredStores = stores.filter(store => {
@@ -976,7 +1120,17 @@ export default function App() {
             systemUsers={users}
             onUpdateTransaction={handleUpdateBinTransaction}
           />
+        ) : activeSubTab === 'Inter-Store Transfer' ? (
+          <InterStoreTransferView
+            stores={stores}
+            materials={materials}
+            systemUsers={users}
+            transfers={transfers}
+            onSaveTransfer={handleSaveTransfer}
+            onDeleteTransfer={handleDeleteTransfer}
+          />
         ) : (
+
           <Layout className="bg-transparent flex flex-col lg:flex-row gap-6 items-start" style={{ background: 'transparent' }}>
             
             {/* Left Sidebar Layout: Optional Sider for categories/filters/locations */}

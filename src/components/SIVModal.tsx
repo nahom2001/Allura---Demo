@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Plus, Trash2 } from 'lucide-react';
+import { X, Plus, Trash2, AlertTriangle } from 'lucide-react';
 import { Store, Material, SystemUser, BinCardTransaction } from '../types';
 
 interface SIVModalProps {
@@ -11,11 +11,12 @@ interface SIVModalProps {
   onSave: (transactions: { materialId: string; tx: Omit<BinCardTransaction, 'id' | 'materialId'> }[]) => void;
 }
 
-interface SIVLineItem {
+interface SivFormItem {
   id: string;
   materialId: string;
-  issueQty: number;
-  remarks: string;
+  quantity: number;
+  unitPrice: number;
+  remark: string;
 }
 
 export default function SIVModal({
@@ -26,108 +27,99 @@ export default function SIVModal({
   users,
   onSave
 }: SIVModalProps) {
-  const [date, setDate] = useState('2026-06-03');
-  const [warehouseId, setWarehouseId] = useState('');
-  const [project, setProject] = useState('Phison Realstate SC site');
-  const [storeRequisition, setStoreRequisition] = useState('MR-0010');
-  const [padRefNo, setPadRefNo] = useState('');
-  const [issuedTo, setIssuedTo] = useState('Block B Tiling Works');
-  const [plateNumber, setPlateNumber] = useState('');
-  const [department, setDepartment] = useState('Construction');
-  const [isVoid, setIsVoid] = useState(false);
-  const [purpose, setPurpose] = useState('');
+  const [sivFormDate, setSivFormDate] = useState<string>('');
+  const [sivFormNo, setSivFormNo] = useState<string>('');
+  const [warehouseId, setWarehouseId] = useState<string>('');
+  const [sivFormProject, setSivFormProject] = useState<string>('Phison Realstate SC site');
+  const [sivFormRequisitionNo, setSivFormRequisitionNo] = useState<string>('MR-1010');
+  
+  // Sign-offs selectors
+  const [sivFormRequestedBy, setSivFormRequestedBy] = useState<string>('');
+  const [sivFormApprovedBy, setSivFormApprovedBy] = useState<string>('');
+  const [sivFormIssuedBy, setSivFormIssuedBy] = useState<string>('');
 
-  // Sign-offs dropdown users
-  const [preparedBy, setPreparedBy] = useState('Nahom Sisay');
-  const [issuedById, setIssuedById] = useState('');
-  const [receivedById, setReceivedById] = useState('');
-  const [checkedById, setCheckedById] = useState('');
-  const [approvedById, setApprovedById] = useState('');
+  const [sivFormItems, setSivFormItems] = useState<SivFormItem[]>([]);
+  const [error, setError] = useState<string>('');
 
-  // Line Items
-  const [lineItems, setLineItems] = useState<SIVLineItem[]>([]);
-  const [error, setError] = useState('');
-
-  // Initial Seed
+  // Initial Seed when modal opens
   useEffect(() => {
     if (isOpen) {
-      setDate(new Date().toISOString().split('T')[0]);
+      setSivFormDate(new Date().toISOString().split('T')[0]);
+      setSivFormNo('');
       setWarehouseId(stores[0]?.id || '');
-      setProject('Phison Realstate SC site');
-      setStoreRequisition('MR-0010');
-      setPadRefNo(`PAD-${Math.floor(20000 + Math.random() * 80000)}`);
-      setIssuedTo('Block B Tiling Works');
-      setPlateNumber('');
-      setDepartment('Construction');
-      setIsVoid(false);
-      setPurpose('For ongoing internal masonry activities.');
+      setSivFormProject('Phison Realstate SC site');
+      setSivFormRequisitionNo(`MR-${Math.floor(1000 + Math.random() * 9000)}`);
       
-      // Select defaults for users
       const keepers = users.filter(u => u.role === 'Store Keeper');
-      const managers = users.filter(u => u.role === 'Warehouse Manager');
-      const controllers = users.filter(u => u.role === 'Stock Controller');
+      const managers = users.filter(u => u.role === 'Warehouse Manager' || u.role === 'Stock Controller');
       const pms = users.filter(u => u.role === 'Project Manager');
 
-      setIssuedById(keepers[0]?.id || users[0]?.id || '');
-      setReceivedById(pms[0]?.id || users[1]?.id || '');
-      setCheckedById(controllers[0]?.id || users[2]?.id || '');
-      setApprovedById(managers[0]?.id || users[3]?.id || '');
-      
-      setLineItems([]);
+      setSivFormIssuedBy(keepers[0]?.id || users[0]?.id || '');
+      setSivFormRequestedBy(managers[0]?.id || users[2]?.id || users[0]?.id || '');
+      setSivFormApprovedBy(pms[0]?.id || users[1]?.id || users[0]?.id || '');
+
+      setSivFormItems([]);
       setError('');
     }
   }, [isOpen, stores, users]);
 
-  // Handle warehouse changes to load materials corresponding only to that specific store (retaining per-store logic)
+  // Synchronize available materials with selected warehouse
   useEffect(() => {
     if (isOpen && warehouseId) {
       const warehouseMaterials = materials.filter(m => m.storeId === warehouseId);
       if (warehouseMaterials.length > 0) {
-        setLineItems([
+        setSivFormItems([
           {
-            id: `item-${Date.now()}`,
+            id: `siv-row-${Date.now()}`,
             materialId: warehouseMaterials[0].id,
-            issueQty: 5,
-            remarks: 'Standard floor installation'
+            quantity: 5,
+            unitPrice: warehouseMaterials[0].unitPrice || 450,
+            remark: 'Ongoing concrete slab formulation installation'
           }
         ]);
       } else {
-        setLineItems([]);
+        setSivFormItems([]);
       }
     }
   }, [warehouseId, isOpen, materials]);
 
   if (!isOpen) return null;
 
-  // Selectable materials inside the chosen warehouse
   const availableMaterials = warehouseId
     ? materials.filter(m => m.storeId === warehouseId)
     : materials;
 
-  const handleAddRow = () => {
+  const handleAddSivFormRow = () => {
     if (availableMaterials.length === 0) {
-      setError('No registered materials exist in this store. Please select another warehouse or log starting balances.');
+      setError('No registered materials exist in this store. Please select another warehouse.');
       return;
     }
-    setLineItems(prev => [
-      ...prev,
-      {
-        id: `item-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
-        materialId: availableMaterials[0].id,
-        issueQty: 1,
-        remarks: ''
-      }
-    ]);
+    const newItem: SivFormItem = {
+      id: `siv-row-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+      materialId: availableMaterials[0].id,
+      quantity: 1,
+      unitPrice: availableMaterials[0].unitPrice || 450,
+      remark: 'Issued for site operations'
+    };
+    setSivFormItems(prev => [...prev, newItem]);
+    setError('');
   };
 
-  const handleRemoveRow = (id: string) => {
-    setLineItems(prev => prev.filter(item => item.id !== id));
+  const handleRemoveSivFormRow = (id: string) => {
+    setSivFormItems(prev => prev.filter(item => item.id !== id));
   };
 
-  const handleUpdateLineItem = (id: string, field: keyof SIVLineItem, value: string | number) => {
-    setLineItems(prev => prev.map(item => {
+  const handleUpdateSivFormRow = (id: string, field: keyof SivFormItem, value: any) => {
+    setSivFormItems(prev => prev.map(item => {
       if (item.id === id) {
-        return { ...item, [field]: value };
+        const updated = { ...item, [field]: value };
+        if (field === 'materialId') {
+          const mat = materials.find(m => m.id === value);
+          if (mat) {
+            updated.unitPrice = mat.unitPrice || 450;
+          }
+        }
+        return updated;
       }
       return item;
     }));
@@ -137,38 +129,49 @@ export default function SIVModal({
     e.preventDefault();
     setError('');
 
-    if (!warehouseId) return setError('Warehouse store is required.');
-    if (lineItems.length === 0) return setError('Please specify at least one item row to issue.');
+    if (!warehouseId) {
+      setError('Please select a dispatch warehouse store.');
+      return;
+    }
+    if (sivFormItems.length === 0) {
+      setError('Please specify at least one material descriptor row.');
+      return;
+    }
 
     // Validate stocks levels prior to completing order
-    for (const item of lineItems) {
-      if (!item.materialId) return setError('Please select a valid material.');
+    for (const item of sivFormItems) {
+      if (!item.materialId) {
+        setError('Please select a valid material.');
+        return;
+      }
       const mat = materials.find(m => m.id === item.materialId);
       if (!mat) continue;
 
-      if (!isVoid && item.issueQty > mat.quantity) {
-        return setError(`Insufficient Stock! Cannot issue ${item.issueQty} ${mat.unit} of "${mat.description}". Only ${mat.quantity} ${mat.unit} available in stock.`);
+      if (item.quantity > mat.quantity) {
+        setError(`Insufficient Stock! Cannot issue ${item.quantity} ${mat.unit} of "${mat.description}". Only ${mat.quantity} ${mat.unit} available in stock.`);
+        return;
       }
     }
 
-    // Save as distinct SIV bin card transactions. 
-    // This correctly updates quantities and propagates the SIV changes to their individual bin cards.
-    const transactionsToSave = lineItems.map(item => {
-      const mat = materials.find(m => m.id === item.materialId)!;
-      const signatureUser = users.find(u => u.id === issuedById)?.initials || 'N.S.';
+    const generatedNo = sivFormNo || `SIV-${Math.floor(Math.random() * 90000) + 10000}`;
+
+    // Convert individual line rows to parent inventory transaction inputs
+    const transactionsToSave = sivFormItems.map((item) => {
+      const matDetail = materials.find(m => m.id === item.materialId);
+      const signatureUser = users.find(u => u.id === sivFormIssuedBy)?.initials || 'SK';
       return {
         materialId: item.materialId,
         tx: {
-          date: date,
-          grnSivNo: isVoid ? 'VOID-SIV' : padRefNo || `SIV-${Math.floor(1000 + Math.random() * 9000)}`,
-          issuedQty: isVoid ? 0 : Number(item.issueQty),
-          plateNumber: plateNumber || undefined,
-          unitPrice: mat.unitPrice,
-          remark: `SIV Registered. To House/Block: ${issuedTo}. Purpose: ${purpose}${item.remarks ? ` [${item.remarks}]` : ''}`,
+          date: sivFormDate,
+          grnSivNo: generatedNo,
+          issuedQty: Number(item.quantity),
+          balance: (matDetail?.quantity || 10) - item.quantity, 
+          unitPrice: item.unitPrice,
+          remark: `Store Issue Voucher | To House/Block: ${sivFormProject}. Requisition: ${sivFormRequisitionNo} | ${item.remark || 'Ongoing construction deployment'}`,
           signature: signatureUser,
-          balance: 0, // Will be evaluated dynamically by save handler
-          checkedById: checkedById,
-          approvedById: approvedById
+          checkedById: sivFormRequestedBy,
+          approvedById: sivFormApprovedBy,
+          qaStatus: undefined // Initial validation state: Pending
         }
       };
     });
@@ -187,12 +190,13 @@ export default function SIVModal({
           <div className="flex items-center justify-between p-5 border-b border-slate-100 bg-[#f9fafb] rounded-t-xl select-none">
             <div>
               <h3 className="text-base font-bold text-slate-800">
-                Store Issue
+                Register Store Issue Voucher (SIV)
               </h3>
+              <p className="text-xs text-slate-500 mt-0.5">Register paper SIVs to route them to standard audit logs and balance tracking.</p>
             </div>
             <button
               onClick={onClose}
-              className="p-1.5 hover:bg-slate-200/50 rounded-lg text-slate-400 hover:text-slate-600 transition"
+              className="p-1.5 hover:bg-slate-200/50 rounded-lg text-slate-400 hover:text-slate-600 transition cursor-pointer"
               id="close-siv-btn"
             >
               <X size={15} strokeWidth={2.5} />
@@ -201,261 +205,194 @@ export default function SIVModal({
 
           <form onSubmit={handleSaveForm} className="p-6 overflow-y-auto max-h-[80vh] space-y-6 text-left">
             {error && (
-              <div className="p-3 bg-red-50 text-red-650 rounded-lg text-xs font-semibold leading-relaxed border border-red-100 animate-pulse">
-                {error}
+              <div className="p-3.5 bg-[#fff1f0] border border-[#ffccc7] text-[#ff4d4f] rounded-lg text-xs font-semibold leading-relaxed animate-pulse flex items-center gap-2">
+                <AlertTriangle size={14} className="shrink-0" />
+                <span>{error}</span>
               </div>
             )}
 
-            {/* Layout grid */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-              
-              {/* 1. Date */}
-              <div className="flex flex-col">
-                <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wide mb-1.5">
-                  <span className="text-red-505 mr-0.5">*</span>Date
-                </label>
-                <input
-                  type="date"
-                  required
-                  value={date}
-                  onChange={(e) => setDate(e.target.value)}
-                  className="h-10 px-3 border border-slate-200 rounded-lg text-xs font-semibold focus:outline-none focus:border-blue-500 shadow-3xs"
-                />
+            {/* Classical Board Simulation Header */}
+            <div className="p-4 bg-white border border-[#eaeaea] rounded-[8px] space-y-4">
+              <div className="text-center pb-2 border-b border-dashed border-slate-150">
+                <h3 className="text-xs font-bold text-slate-700 tracking-wider uppercase font-mono">Store Issue Voucher (SIV) Entry</h3>
               </div>
 
-              {/* 2. Warehouse select */}
-              <div className="flex flex-col">
-                <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wide mb-1.5">
-                  <span className="text-red-505 mr-0.5">*</span>Warehouse
-                </label>
-                <select
-                  required
-                  value={warehouseId}
-                  onChange={(e) => setWarehouseId(e.target.value)}
-                  className="h-10 px-3 bg-white border border-slate-200 rounded-lg text-xs font-semibold focus:outline-none focus:border-blue-500 outline-none shadow-3xs"
-                >
-                  <option value="">Select dispatch store</option>
-                  {stores.map(st => (
-                    <option key={st.id} value={st.id}>
-                      {st.name} ({st.city})
-                    </option>
-                  ))}
-                </select>
-              </div>
+              {/* 2x2 Field input Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-xs font-medium">
+                <div className="flex flex-col gap-1.5">
+                  <span className="text-[#595959] flex items-center gap-1 font-semibold">ቀን/Date <span className="text-red-500">*</span></span>
+                  <input
+                    type="date"
+                    required
+                    value={sivFormDate}
+                    onChange={(e) => setSivFormDate(e.target.value)}
+                    className="h-8 px-3 border border-[#d9d9d9] rounded hover:border-[#033096] focus:border-[#033096] outline-none bg-white font-medium shadow-3xs"
+                  />
+                </div>
 
-              {/* 3. Project/Department */}
-              <div className="flex flex-col">
-                <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wide mb-1.5">
-                  <span className="text-red-505 mr-0.5">*</span>Project / Department
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={project}
-                  onChange={(e) => setProject(e.target.value)}
-                  placeholder="project"
-                  className="h-10 px-3 border border-slate-200 rounded-lg text-xs font-semibold focus:outline-none focus:border-blue-500 shadow-3xs"
-                />
-              </div>
+                <div className="flex flex-col gap-1.5">
+                  <span className="text-[#595959] flex items-center gap-1 font-semibold">ቁጥር/No <span className="text-slate-400 font-normal italic">(Leave blank to auto-generate)</span></span>
+                  <input
+                    type="text"
+                    placeholder="e.g. SIV-4822"
+                    value={sivFormNo}
+                    onChange={(e) => setSivFormNo(e.target.value)}
+                    className="h-8 px-3 border border-[#d9d9d9] rounded hover:border-[#033096] focus:border-[#033096] outline-none shadow-3xs"
+                  />
+                </div>
 
-              {/* 4. Store Requisition reference */}
-              <div className="flex flex-col">
-                <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wide mb-1.5">
-                  <span className="text-red-505 mr-0.5">*</span>Store Requisition
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={storeRequisition}
-                  onChange={(e) => setStoreRequisition(e.target.value)}
-                  placeholder="MR number"
-                  className="h-10 px-3 border border-slate-200 rounded-lg text-xs font-semibold focus:outline-none focus:border-blue-500 shadow-3xs"
-                />
-              </div>
+                <div className="flex flex-col gap-1.5">
+                  <span className="text-[#595959] flex items-center gap-1 font-semibold">Warehouse / Dispatch Store <span className="text-red-500">*</span></span>
+                  <select
+                    required
+                    value={warehouseId}
+                    onChange={(e) => setWarehouseId(e.target.value)}
+                    className="h-8 px-2 bg-white border border-[#d9d9d9] rounded hover:border-[#033096] focus:border-[#033096] outline-none text-xs shadow-3xs cursor-pointer"
+                  >
+                    <option value="">Select dispatch store</option>
+                    {stores.map(st => (
+                      <option key={st.id} value={st.id}>
+                        {st.name} ({st.city})
+                      </option>
+                    ))}
+                  </select>
+                </div>
 
-              {/* 5. Pad Reference Number */}
-              <div className="flex flex-col">
-                <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wide mb-1.5">Pad Reference Number</label>
-                <input
-                  type="text"
-                  placeholder="ref"
-                  value={padRefNo}
-                  onChange={(e) => setPadRefNo(e.target.value)}
-                  className="h-10 px-3 border border-slate-200 rounded-lg text-xs font-semibold focus:outline-none"
-                />
-              </div>
+                <div className="flex flex-col gap-1.5">
+                  <span className="text-[#595959] flex items-center gap-1 font-semibold">መመሪያ / ክፍል / Project Site <span className="text-red-500">*</span></span>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Gotera Project Site"
+                    value={sivFormProject}
+                    onChange={(e) => setSivFormProject(e.target.value)}
+                    className="h-8 px-3 border border-[#d9d9d9] rounded hover:border-[#033096] focus:border-[#033096] outline-none shadow-3xs"
+                  />
+                </div>
 
-              {/* 6. Issued to House/Block */}
-              <div className="flex flex-col">
-                <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wide mb-1.5">
-                  <span className="text-red-505 mr-0.5">*</span>Issued to House / Block
-                </label>
-                <input
-                  type="text"
-                  required
-                  placeholder="issued"
-                  value={issuedTo}
-                  onChange={(e) => setIssuedTo(e.target.value)}
-                  className="h-10 px-3 border border-slate-200 rounded-lg text-xs font-semibold focus:outline-none"
-                />
+                <div className="flex flex-col gap-1.5">
+                  <span className="text-[#595959] flex items-center gap-1 font-semibold">Store Requisition No <span className="text-red-500">*</span></span>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. MR-0010"
+                    value={sivFormRequisitionNo}
+                    onChange={(e) => setSivFormRequisitionNo(e.target.value)}
+                    className="h-8 px-3 border border-[#d9d9d9] rounded hover:border-[#033096] focus:border-[#033096] outline-none shadow-3xs"
+                  />
+                </div>
               </div>
-
-              {/* 7. Vehicle plate */}
-              <div className="flex flex-col">
-                <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wide mb-1.5">Vehicle / Car Plate Number</label>
-                <input
-                  type="text"
-                  placeholder="plate number"
-                  value={plateNumber}
-                  onChange={(e) => setPlateNumber(e.target.value)}
-                  className="h-10 px-3 border border-slate-200 rounded-lg text-xs font-semibold focus:outline-none"
-                />
-              </div>
-
-              {/* 8. Department */}
-              <div className="flex flex-col">
-                <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wide mb-1.5">Department</label>
-                <input
-                  type="text"
-                  placeholder="name of department"
-                  value={department}
-                  onChange={(e) => setDepartment(e.target.value)}
-                  className="h-10 px-3 border border-slate-200 rounded-lg text-xs font-semibold focus:outline-none"
-                />
-              </div>
-
             </div>
 
-            {/* Void Checkbox */}
-            <div className="p-4 bg-slate-50 rounded-lg border border-slate-100 flex items-center justify-between">
-              <span className="text-xs font-bold text-slate-700">Voucher State</span>
-              <label className="flex items-center space-x-2 text-xs font-medium text-slate-600 cursor-pointer select-none">
-                <input
-                  type="checkbox"
-                  checked={isVoid}
-                  onChange={(e) => setIsVoid(e.target.checked)}
-                  className="w-4 h-4 text-blue-650 border-slate-300 rounded focus:ring-blue-500"
-                />
-                <span>Void</span>
-              </label>
-            </div>
-
-            {/* Purpose */}
-            <div className="flex flex-col">
-              <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wide mb-1.5">Purpose</label>
-              <textarea
-                value={purpose}
-                onChange={(e) => setPurpose(e.target.value)}
-                rows={2}
-                placeholder="Explain why materials are being issued..."
-                className="w-full p-3 border border-slate-200 rounded-lg text-xs font-semibold focus:outline-none focus:border-blue-500 outline-none transition"
-              />
-            </div>
-
-            {/* Dynamic line items spreadsheet */}
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wide">
-                  Distribution specification
-                </h4>
-                <button
-                  type="button"
-                  onClick={handleAddRow}
-                  className="px-3 py-1.5 border border-[#033096]/20 text-[#033096] bg-[#033096]/5 hover:bg-[#033096]/10 rounded-lg text-xs font-semibold transition flex items-center gap-1 cursor-pointer"
-                >
-                  <Plus size={12} strokeWidth={2.5} />
-                  <span>+ Add Material Row</span>
-                </button>
+            {/* Layout grid for items */}
+            <div className="space-y-2 text-xs">
+              <div className="flex justify-between items-center bg-white p-3 border border-b-0 border-[#f0f0f0] rounded-t-[8px]">
+                <span className="font-bold text-[#1a1a1a] uppercase tracking-wider text-[11px]">Material Items Spreadsheet Specification</span>
               </div>
 
-              <div className="border border-slate-200 rounded-xl overflow-hidden shadow-3xs bg-white">
+              <div className="border border-[#e8e8e8] rounded-b-[8px] overflow-hidden bg-white shadow-3xs">
                 <div className="overflow-x-auto">
                   <table className="w-full text-left border-collapse text-xs">
                     <thead>
-                      <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold">
-                        <th className="p-3 w-12 text-center">No</th>
-                        <th className="p-3 min-w-[200px]">Material Descriptor</th>
-                        <th className="p-3 w-20">Unit</th>
-                        <th className="p-3 w-28">In Stock</th>
-                        <th className="p-3 w-32">Issue Qty</th>
-                        <th className="p-3">Remarks</th>
-                        <th className="p-3 w-12 text-center">Delete</th>
+                      <tr className="bg-slate-50 border-b border-[#e8e8e8] text-slate-550 font-bold uppercase tracking-tight text-[10px]">
+                        <th className="p-2.5 w-10 text-center">No</th>
+                        <th className="p-2.5 min-w-[200px]">የእቃ ስም / መግለጫ (Item Descriptor)</th>
+                        <th className="p-2.5 w-16 text-center">Unit</th>
+                        <th className="p-2.5 w-24 text-center">In Stock</th>
+                        <th className="p-2.5 w-24 text-right">ብዛት/Qty</th>
+                        <th className="p-2.5 w-24 text-right">Unit Price</th>
+                        <th className="p-2.5 w-28 text-right">Total Price</th>
+                        <th className="p-2.5 min-w-[120px]">Remark</th>
+                        <th className="p-2.5 w-12 text-center">Delete</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 font-medium">
-                      {lineItems.length === 0 ? (
+                      {sivFormItems.length === 0 ? (
                         <tr>
-                          <td colSpan={7} className="p-8 text-center text-slate-400">
-                            No materials selected. Click "+ Add Material Row" above.
+                          <td colSpan={9} className="p-6 text-center text-slate-400 italic">
+                            No material rows added. Click "+ Add Material Row" below to insert.
                           </td>
                         </tr>
                       ) : (
-                        lineItems.map((item, idx) => {
-                          const activeMat = materials.find(m => m.id === item.materialId);
+                        sivFormItems.map((item, index) => {
+                          const selectedMat = materials.find(m => m.id === item.materialId);
+                          const itemTotal = item.quantity * item.unitPrice;
                           return (
-                            <tr key={item.id} className="hover:bg-slate-55">
-                              <td className="p-3 text-center text-slate-400 font-bold">{idx + 1}</td>
+                            <tr key={item.id} className="hover:bg-slate-50/50">
+                              <td className="p-2.5 text-center text-slate-400 font-bold">{index + 1}</td>
                               
-                              {/* Material Select */}
-                              <td className="p-2">
+                              {/* Material Selection Dropdown */}
+                              <td className="p-1.5">
                                 <select
                                   value={item.materialId}
-                                  onChange={(e) => {
-                                    handleUpdateLineItem(item.id, 'materialId', e.target.value);
-                                  }}
-                                  className="w-full h-8 px-2 bg-white border border-slate-200 rounded text-xs outline-none"
+                                  onChange={(e) => handleUpdateSivFormRow(item.id, 'materialId', e.target.value)}
+                                  className="w-full h-8 pl-1 bg-white border border-[#d9d9d9] hover:border-[#033096] rounded text-xs outline-none cursor-pointer"
                                 >
                                   {availableMaterials.length === 0 ? (
-                                    <option value="">No materials in this store</option>
+                                    <option value="">No materials in selected store</option>
                                   ) : (
                                     availableMaterials.map(m => (
-                                      <option key={m.id} value={m.id}>
-                                        {m.code} - {m.description}
-                                      </option>
+                                      <option key={m.id} value={m.id}>{m.code} - {m.description}</option>
                                     ))
                                   )}
                                 </select>
                               </td>
 
-                              {/* Unit */}
-                              <td className="p-3 text-slate-500 font-semibold text-center">
-                                {activeMat?.unit || '-'}
+                              {/* Unit column representation */}
+                              <td className="p-2.5 text-center text-slate-500 font-semibold uppercase">
+                                {selectedMat?.unit || 'Unit'}
                               </td>
 
-                              {/* In Stock */}
-                              <td className="p-3 text-slate-600 font-bold text-center">
-                                {activeMat ? activeMat.quantity : 0}
+                              {/* Instock level dynamically aligned */}
+                              <td className="p-2.5 text-center text-slate-600 font-bold bg-[#fafafa]/50">
+                                {selectedMat?.quantity ?? 0}
                               </td>
 
-                              {/* Issue Qty */}
-                              <td className="p-2">
+                              {/* Quantity selection input */}
+                              <td className="p-1.5 text-right font-semibold">
                                 <input
                                   type="number"
                                   min={0.1}
                                   step="any"
-                                  value={item.issueQty}
-                                  onChange={(e) => handleUpdateLineItem(item.id, 'issueQty', Number(e.target.value))}
-                                  className="w-full h-8 px-2 border border-slate-200 rounded text-xs text-right font-bold focus:border-red-500"
+                                  value={item.quantity}
+                                  onChange={(e) => handleUpdateSivFormRow(item.id, 'quantity', Number(e.target.value))}
+                                  className="w-20 h-8 px-2 border border-[#d9d9d9] bg-white text-right focus:border-[#033096] rounded outline-none font-bold"
                                 />
                               </td>
 
-                              {/* Remarks */}
-                              <td className="p-2">
+                              {/* Active Unit price from bin cards */}
+                              <td className="p-1.5 text-right text-slate-500 font-bold">
+                                <input
+                                  type="number"
+                                  step="any"
+                                  value={item.unitPrice}
+                                  onChange={(e) => handleUpdateSivFormRow(item.id, 'unitPrice', Number(e.target.value))}
+                                  className="w-24 h-8 px-2 border border-[#d9d9d9] bg-white text-right focus:border-[#033096] rounded outline-none"
+                                />
+                              </td>
+
+                              {/* Calculated Total price value */}
+                              <td className="p-2.5 text-right font-bold text-slate-800 tracking-tight font-mono">
+                                {itemTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                              </td>
+
+                              {/* Row custom note remarks */}
+                              <td className="p-1.5">
                                 <input
                                   type="text"
-                                  placeholder="e.g. wall installation"
-                                  value={item.remarks}
-                                  onChange={(e) => handleUpdateLineItem(item.id, 'remarks', e.target.value)}
-                                  className="w-full h-8 px-2 border border-slate-200 rounded text-xs"
+                                  placeholder="e.g. masonry activity"
+                                  value={item.remark}
+                                  onChange={(e) => handleUpdateSivFormRow(item.id, 'remark', e.target.value)}
+                                  className="w-full h-8 px-2 border border-[#d9d9d9] bg-white rounded text-xs outline-none"
                                 />
                               </td>
 
-                              {/* Actions */}
-                              <td className="p-3 text-center">
+                              {/* Delete row handler */}
+                              <td className="p-2.5 text-center">
                                 <button
                                   type="button"
-                                  onClick={() => handleRemoveRow(item.id)}
-                                  className="p-1 text-slate-400 hover:text-red-500 rounded hover:bg-slate-50 cursor-pointer"
+                                  onClick={() => handleRemoveSivFormRow(item.id)}
+                                  className="p-1.5 hover:bg-slate-100 rounded text-slate-450 hover:text-red-545 cursor-pointer transition"
                                 >
                                   <Trash2 size={13} />
                                 </button>
@@ -467,93 +404,69 @@ export default function SIVModal({
                     </tbody>
                   </table>
                 </div>
+
+                {/* Relocated "+" Add Material button to the bottom of the material row list */}
+                <div className="p-3 bg-[#fafafa] border-t border-[#e8e8e8] flex justify-end">
+                  <button
+                    type="button"
+                    onClick={handleAddSivFormRow}
+                    className="h-8 px-4 bg-white border border-[#d9d9d9] hover:border-[#033096] text-[#033096] hover:text-blue-800 font-semibold text-xs rounded-lg shadow-3xs flex items-center gap-1.5 cursor-pointer hover:bg-slate-50 transition"
+                  >
+                    <Plus size={13} strokeWidth={2.5} />
+                    <span>+ Add Material Row</span>
+                  </button>
+                </div>
               </div>
             </div>
 
-            {/* Sign-offs Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-5 gap-4 bg-slate-50/50 p-4 border border-slate-150 rounded-xl mt-6">
-              {/* Prepared By (Automatic current worker) */}
-              <div className="flex flex-col">
-                <label className="text-[10px] font-bold text-slate-450 uppercase mb-1">Prepared By</label>
-                <input
-                  type="text"
-                  readOnly
-                  value={preparedBy}
-                  className="h-9 px-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold text-slate-500 outline-none"
-                />
+            {/* Classical Audit flow signatures column layout */}
+            <div className="p-4 bg-white border border-[#e8e8e8] rounded-[8px] space-y-4">
+              <div className="pb-1 border-b border-[#eaeaea]">
+                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">Signatures / Approval Signatures</span>
               </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs font-medium">
+                <div className="flex flex-col gap-1.5">
+                  <span className="text-[#595959]">Requested By (PM / Supervisor)</span>
+                  <select
+                    value={sivFormRequestedBy}
+                    onChange={(e) => setSivFormRequestedBy(e.target.value)}
+                    className="h-8 pl-2 pr-6 bg-white border border-[#d9d9d9] hover:border-[#033096] focus:border-[#033096] rounded text-xs outline-none cursor-pointer"
+                  >
+                    {users.map(u => (
+                      <option key={u.id} value={u.id}>{u.name} ({u.role.split(' ')[0]})</option>
+                    ))}
+                  </select>
+                </div>
 
-              {/* Issued By */}
-              <div className="flex flex-col">
-                <label className="text-[10px] font-bold text-slate-455 uppercase mb-1">
-                  <span className="text-red-505 mr-0.5">*</span>Issued By
-                </label>
-                <select
-                  required
-                  value={issuedById}
-                  onChange={(e) => setIssuedById(e.target.value)}
-                  className="h-9 px-2 bg-white border border-slate-200 rounded-lg text-xs font-semibold focus:outline-none cursor-pointer"
-                >
-                  <option value="">Select issuer</option>
-                  {users.map(u => (
-                    <option key={u.id} value={u.id}>{u.name} ({u.role})</option>
-                  ))}
-                </select>
-              </div>
+                <div className="flex flex-col gap-1.5">
+                  <span className="text-[#595959]">Approved By (Finance / Manager)</span>
+                  <select
+                    value={sivFormApprovedBy}
+                    onChange={(e) => setSivFormApprovedBy(e.target.value)}
+                    className="h-8 pl-2 pr-6 bg-white border border-[#d9d9d9] hover:border-[#033096] focus:border-[#033096] rounded text-xs outline-none cursor-pointer"
+                  >
+                    {users.map(u => (
+                      <option key={u.id} value={u.id}>{u.name} ({u.role.split(' ')[0]})</option>
+                    ))}
+                  </select>
+                </div>
 
-              {/* Received By */}
-              <div className="flex flex-col">
-                <label className="text-[10px] font-bold text-slate-455 uppercase mb-1">Received By</label>
-                <select
-                  value={receivedById}
-                  onChange={(e) => setReceivedById(e.target.value)}
-                  className="h-9 px-2 bg-white border border-slate-200 rounded-lg text-xs font-semibold focus:outline-none cursor-pointer"
-                >
-                  <option value="">Select recipient</option>
-                  {users.map(u => (
-                    <option key={u.id} value={u.id}>{u.name} ({u.role})</option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Checked By */}
-              <div className="flex flex-col">
-                <label className="text-[10px] font-bold text-slate-455 uppercase mb-1">
-                  <span className="text-red-505 mr-0.5">*</span>Checked By
-                </label>
-                <select
-                  required
-                  value={checkedById}
-                  onChange={(e) => setCheckedById(e.target.value)}
-                  className="h-9 px-2 bg-white border border-slate-200 rounded-lg text-xs font-semibold focus:outline-none cursor-pointer"
-                >
-                  <option value="">Select reviewer</option>
-                  {users.map(u => (
-                    <option key={u.id} value={u.id}>{u.name} ({u.role})</option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Approved By */}
-              <div className="flex flex-col">
-                <label className="text-[10px] font-bold text-slate-455 uppercase mb-1">
-                  <span className="text-red-505 mr-0.5">*</span>Approved By
-                </label>
-                <select
-                  required
-                  value={approvedById}
-                  onChange={(e) => setApprovedById(e.target.value)}
-                  className="h-9 px-2 bg-white border border-slate-200 rounded-lg text-xs font-semibold focus:outline-none cursor-pointer"
-                >
-                  <option value="">Select approver</option>
-                  {users.map(u => (
-                    <option key={u.id} value={u.id}>{u.name} ({u.role})</option>
-                  ))}
-                </select>
+                <div className="flex flex-col gap-1.5">
+                  <span className="text-[#595959]">Issued By (Store Keeper Desk)</span>
+                  <select
+                    value={sivFormIssuedBy}
+                    onChange={(e) => setSivFormIssuedBy(e.target.value)}
+                    className="h-8 pl-2 pr-6 bg-white border border-[#d9d9d9] hover:border-[#033096] focus:border-[#033096] rounded text-xs outline-none cursor-pointer"
+                  >
+                    {users.map(u => (
+                      <option key={u.id} value={u.id}>{u.name} ({u.role.split(' ')[0]})</option>
+                    ))}
+                  </select>
+                </div>
               </div>
             </div>
 
-            {/* Modal footers */}
+            {/* Form actions */}
             <div className="flex items-center justify-end space-x-3 pt-4 border-t border-slate-100">
               <button
                 type="button"
@@ -569,7 +482,6 @@ export default function SIVModal({
                 Save Changes
               </button>
             </div>
-
           </form>
         </div>
       </div>

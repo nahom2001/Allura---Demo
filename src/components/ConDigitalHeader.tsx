@@ -17,11 +17,13 @@ export default function ConDigitalHeader({ currentTab, setCurrentTab, activeSubT
     { name: 'Inventory' },
     { name: 'Site Visit' },
     { name: 'Fixed Asset' },
+    { name: 'Task' },
     { name: 'EVM Dashboard' },
   ];
 
   const subTabs = [
     'Material',
+    'Inter-Store Transfer',
     'Supplier',
     'Store Requisition',
     'Purchase Requisition',
