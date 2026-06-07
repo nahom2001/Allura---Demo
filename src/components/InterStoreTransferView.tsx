@@ -935,7 +935,7 @@ export default function InterStoreTransferView({
                             <div className="flex items-center justify-center gap-1.5">
                               
                               {/* 1. Preview (Eye icon) */}
-                              <Tooltip title="View voucher manifest sheet">
+                              <Tooltip title="View">
                                 <button
                                   onClick={() => {
                                     setSelectedTransferId(tx.id);
@@ -948,7 +948,7 @@ export default function InterStoreTransferView({
                               </Tooltip>
 
                               {/* 2. Direct edit (Black pencil) */}
-                              <Tooltip title="Edit voucher records">
+                              <Tooltip title="Edit">
                                 <button
                                   onClick={() => handleEditTransfer(tx)}
                                   style={{ color: '#2C2C2C' }}
@@ -959,7 +959,7 @@ export default function InterStoreTransferView({
                               </Tooltip>
 
                               {/* 3. Detailed spreadsheet representation (Blue edit) */}
-                              <Tooltip title="View transfer details spec">
+                              <Tooltip title="View">
                                 <button
                                   onClick={() => handleEditTransfer(tx)}
                                   className="p-1.5 bg-transparent border-0 text-[#177ff3] hover:text-[#033096] hover:bg-slate-100 rounded transition cursor-pointer select-none"
@@ -969,7 +969,7 @@ export default function InterStoreTransferView({
                               </Tooltip>
 
                               {/* 4. Print (Printer) */}
-                              <Tooltip title="Print physical copy">
+                              <Tooltip title="Print">
                                 <button
                                   onClick={() => {
                                     setSelectedTransferId(tx.id);
@@ -982,7 +982,7 @@ export default function InterStoreTransferView({
                               </Tooltip>
 
                               {/* 5. Delete (Red Trash) */}
-                              <Tooltip title="Delete transaction file">
+                              <Tooltip title="Delete">
                                 <button
                                   onClick={() => handleDeleteTransferItem(tx.id, tx.transferNo)}
                                   className="p-1.5 bg-transparent border-0 text-red-500 hover:text-red-700 hover:bg-red-50/50 rounded transition cursor-pointer select-none"
