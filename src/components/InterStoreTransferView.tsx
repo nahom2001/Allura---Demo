@@ -879,7 +879,7 @@ export default function InterStoreTransferView({
                 
                 {/* 1. Header Styling matches lilac screenshot backdrop */}
                 <thead>
-                  <tr className="bg-[#f6f5fc] text-[#4f4f92] border-b border-[#eaeaea] text-[11px] font-bold uppercase tracking-wide select-none">
+                  <tr className="bg-[#FDE4DA] text-[#4f4f92] border-b border-[#eaeaea] text-[11px] font-bold uppercase tracking-wide select-none">
                     <th className="p-4 pl-5 w-24 text-left font-serif">GTO <span className="text-slate-350 pr-1 select-none">↕</span></th>
                     <th className="p-4 w-28 text-left font-serif">Date <span className="text-slate-350 pr-1 select-none">↕</span></th>
                     <th className="p-4 min-w-[140px] text-left">Receiving Store</th>
