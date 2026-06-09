@@ -11,21 +11,60 @@ interface ConDigitalHeaderProps {
 
 export default function ConDigitalHeader({ currentTab, setCurrentTab, activeSubTab, setActiveSubTab }: ConDigitalHeaderProps) {
   const menuItems = [
+    { name: 'Project' },
+    { name: 'Human Resource' },
     { name: 'Procurement' },
+    { name: 'Inventory' },
+    { name: 'Tender' },
+    { name: 'Database' },
+    { name: 'Finance' },
+    { name: 'Site Visit' },
     { name: 'Fixed Asset' },
     { name: 'Task' },
     { name: 'EVM Dashboard' },
   ];
 
-  const subTabs = [
-    'Material',
-    'Location',
-    'Inter-Store Transfer',
-    'Supplier',
-    'Purchase Evaluation',
-    'Purchase Order',
-    'Voucher Validation',
-  ];
+  const subTabs = (() => {
+    if (currentTab === 'Procurement') {
+      return [
+        'Material',
+        'Location',
+        'Inter-Store Transfer',
+        'Supplier',
+        'Purchase Evaluation',
+        'Purchase Order',
+        'Voucher Validation',
+        'Purchase Requisition',
+        'PR Purchaser',
+        'Follow Up',
+        'Service List',
+        'Material Starting Balance',
+        'Store Requisition',
+        'Store'
+      ];
+    } else if (currentTab === 'Inventory') {
+      return [
+        'Material',
+        'Service List',
+        'Material Starting Balance',
+        'Location',
+        'Inter-Store Transfer',
+        'Supplier',
+        'Store Requisition'
+      ];
+    } else {
+      // For and other mock headers, fallback to empty or some default list
+      return [
+        'Material',
+        'Service List',
+        'Material Starting Balance',
+        'Location',
+        'Inter-Store Transfer',
+        'Supplier',
+        'Store Requisition'
+      ];
+    }
+  })();
 
   return (
     <header className="w-full bg-white select-none" id="condigital-header">

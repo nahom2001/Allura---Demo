@@ -42,6 +42,13 @@ import GRVModal from './components/GRVModal';
 import SIVModal from './components/SIVModal';
 import VoucherValidationView from './components/VoucherValidationView';
 import InterStoreTransferView from './components/InterStoreTransferView';
+import PurchaseRequisitionView from './components/PurchaseRequisitionView';
+import PrPurchaserView from './components/PrPurchaserView';
+import FollowUpView from './components/FollowUpView';
+import ServiceListView from './components/ServiceListView';
+import MaterialStartingBalanceView from './components/MaterialStartingBalanceView';
+import LocationView from './components/LocationView';
+import StoreRequisitionView from './components/StoreRequisitionView';
 
 
 function generateDefaultTransactions(): BinCardTransaction[] {
@@ -302,6 +309,45 @@ export default function App() {
   const [materialStartDate, setMaterialStartDate] = useState<string>('');
   const [materialEndDate, setMaterialEndDate] = useState<string>('');
   const [activeSubTab, setActiveSubTab] = useState<string>('Material');
+
+  // Sync activeSubTab when currentTab (parent selection) mutes
+  useEffect(() => {
+    if (currentTab === 'Procurement') {
+      const procurementTabs = [
+        'Material',
+        'Location',
+        'Inter-Store Transfer',
+        'Supplier',
+        'Purchase Evaluation',
+        'Purchase Order',
+        'Voucher Validation',
+        'Purchase Requisition',
+        'PR Purchaser',
+        'Follow Up',
+        'Service List',
+        'Material Starting Balance',
+        'Store Requisition',
+        'Store'
+      ];
+      if (!procurementTabs.includes(activeSubTab)) {
+        setActiveSubTab('Material');
+      }
+    } else if (currentTab === 'Inventory') {
+      const inventoryTabs = [
+        'Material',
+        'Service List',
+        'Material Starting Balance',
+        'Location',
+        'Inter-Store Transfer',
+        'Supplier',
+        'Store Requisition',
+        'Store'
+      ];
+      if (!inventoryTabs.includes(activeSubTab)) {
+        setActiveSubTab('Material');
+      }
+    }
+  }, [currentTab]);
   const [isGrvMode, setIsGrvMode] = useState<boolean>(false);
   const [isSivMode, setIsSivMode] = useState<boolean>(false);
 
@@ -437,12 +483,14 @@ export default function App() {
 
   // Synchronize store selections to reflect active sub tabs
   useEffect(() => {
+    if (currentTab !== 'Inventory' && currentTab !== 'Procurement') return;
+    if (activeSubTab !== 'Material' && activeSubTab !== 'Store') return;
     if (selectedStoreId === 'all') {
       setActiveSubTab('Material');
     } else {
       setActiveSubTab('Store');
     }
-  }, [selectedStoreId]);
+  }, [selectedStoreId, currentTab, activeSubTab]);
 
   // Handle store actions
   const handleSaveStore = (storeData: Omit<Store, 'id' | 'createdAt'> & { id?: string }) => {
@@ -1640,7 +1688,53 @@ export default function App() {
         )}
 
         {/* Core Workspace - Dynamic navigation dependent content section */}
-        {activeSubTab === 'Purchase Order' ? (
+        {activeSubTab === 'Purchase Requisition' ? (
+          <PurchaseRequisitionView
+            purchaseRequisitions={purchaseRequisitions}
+            onAddRequisition={(newPr) => {
+              const updated = [newPr, ...purchaseRequisitions];
+              setPurchaseRequisitions(updated);
+              localStorage.setItem('condigital_prs', JSON.stringify(updated));
+            }}
+            systemUsers={users}
+          />
+        ) : activeSubTab === 'PR Purchaser' ? (
+          <PrPurchaserView
+            purchaseRequisitions={purchaseRequisitions}
+            systemUsers={users}
+          />
+        ) : activeSubTab === 'Follow Up' ? (
+          <FollowUpView
+            purchaseOrders={purchaseOrders}
+          />
+        ) : activeSubTab === 'Service List' ? (
+          <ServiceListView />
+        ) : activeSubTab === 'Material Starting Balance' ? (
+          <MaterialStartingBalanceView
+            materials={materials}
+            onUpdateMaterial={(updatedMat) => {
+              const updated = materials.map(m => m.id === updatedMat.id ? updatedMat : m);
+              setMaterials(updated);
+            }}
+          />
+        ) : activeSubTab === 'Location' ? (
+          <LocationView
+            stores={stores}
+            onAddStore={() => {
+              setEditingStore(null);
+              setIsStoreModalOpen(true);
+            }}
+            onEditStore={(store) => {
+              setEditingStore(store);
+              setIsStoreModalOpen(true);
+            }}
+            onDeleteStore={handleDeleteStore}
+          />
+        ) : activeSubTab === 'Store Requisition' ? (
+          <StoreRequisitionView
+            systemUsers={users}
+          />
+        ) : activeSubTab === 'Purchase Order' ? (
           <PurchaseOrderView
             suppliers={suppliers}
             purchaseRequisitions={purchaseRequisitions}
