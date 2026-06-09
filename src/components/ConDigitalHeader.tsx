@@ -11,11 +11,7 @@ interface ConDigitalHeaderProps {
 
 export default function ConDigitalHeader({ currentTab, setCurrentTab, activeSubTab, setActiveSubTab }: ConDigitalHeaderProps) {
   const menuItems = [
-    { name: 'Project' },
-    { name: 'Human Resource' },
     { name: 'Procurement' },
-    { name: 'Inventory' },
-    { name: 'Site Visit' },
     { name: 'Fixed Asset' },
     { name: 'Task' },
     { name: 'EVM Dashboard' },
@@ -23,11 +19,9 @@ export default function ConDigitalHeader({ currentTab, setCurrentTab, activeSubT
 
   const subTabs = [
     'Material',
+    'Location',
     'Inter-Store Transfer',
     'Supplier',
-    'Store Requisition',
-    'Purchase Requisition',
-    'PR Purchaser',
     'Purchase Evaluation',
     'Purchase Order',
     'Voucher Validation',

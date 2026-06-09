@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Table, Button, Dropdown, Menu, Tooltip, Form, Input, Select, InputNumber, Modal, DatePicker } from 'antd';
 import dayjs from 'dayjs';
-import { PlusOutlined, DeleteOutlined, SyncOutlined, MoreOutlined, EyeOutlined, EditOutlined, PrinterOutlined, ShareAltOutlined } from '@ant-design/icons';
+import { PlusOutlined, DeleteOutlined, SyncOutlined, MoreOutlined, EyeOutlined, EditOutlined, PrinterOutlined, ShareAltOutlined, CheckCircleOutlined, InfoCircleOutlined } from '@ant-design/icons';
 import { 
   Check, 
   X, 
@@ -25,7 +25,7 @@ import {
   Trash2,
   FileSpreadsheet
 } from 'lucide-react';
-import { Store, Material, SystemUser, InterStoreTransfer, InterStoreTransferItem } from '../types';
+import { Store, Material, SystemUser, InterStoreTransfer, InterStoreTransferItem, PurchaseRequisition } from '../types';
 
 interface InterStoreTransferViewProps {
   stores: Store[];
@@ -34,6 +34,9 @@ interface InterStoreTransferViewProps {
   transfers: InterStoreTransfer[];
   onSaveTransfer: (transfer: InterStoreTransfer) => void;
   onDeleteTransfer: (transferId: string) => void;
+  istvRequests: any[];
+  setIstvRequests: React.Dispatch<React.SetStateAction<any[]>>;
+  purchaseRequisitions?: PurchaseRequisition[];
 }
 
 export default function InterStoreTransferView({
@@ -42,7 +45,10 @@ export default function InterStoreTransferView({
   systemUsers,
   transfers,
   onSaveTransfer,
-  onDeleteTransfer
+  onDeleteTransfer,
+  istvRequests,
+  setIstvRequests,
+  purchaseRequisitions = []
 }: InterStoreTransferViewProps) {
   
   const [selectedTransferId, setSelectedTransferId] = useState<string | null>(null);
@@ -50,6 +56,12 @@ export default function InterStoreTransferView({
   const [isViewingVoucher, setIsViewingVoucher] = useState<boolean>(false);
   const [successMessage, setSuccessMessage] = useState<string>('');
   const [errorMessage, setErrorMessage] = useState<string>('');
+
+  // -------------------------------------------------------------
+  // Dynamic ISTV Requests (Flowchart integration logic) state
+  // -------------------------------------------------------------
+  const [linkedRequestId, setLinkedRequestId] = useState<string | null>(null);
+
 
   // Search/Filters State
   const [searchText, setSearchText] = useState('');
@@ -75,6 +87,29 @@ export default function InterStoreTransferView({
   const [formRequestedById, setFormRequestedById] = useState('');
   const [formApprovedById, setFormApprovedById] = useState('');
   const [formIssuedById, setFormIssuedById] = useState('');
+
+  // Compiled MR options from default values and dynamic purchaseRequisitions
+  const mrOptions = useMemo(() => {
+    const list = [
+      { code: 'MR-9473', description: 'Requisition - Standard Site Material' },
+      { code: 'MR-4903', description: 'Requisition - Reinforcement Steel 12mm' },
+      { code: 'MR-1084', description: 'Requisition - PVC Pipe Conduit 50mm' },
+      { code: 'MR-Transfer', description: 'Requisition - Internal Store Transfer request' },
+    ];
+    
+    if (purchaseRequisitions && purchaseRequisitions.length > 0) {
+      purchaseRequisitions.forEach(pr => {
+        const mrCode = pr.srCode ? pr.srCode.replace('SR-', 'MR-') : pr.code.replace('PR-', 'MR-');
+        if (!list.some(item => item.code === mrCode)) {
+          list.push({
+            code: mrCode,
+            description: `Requisition - ${pr.description}`
+          });
+        }
+      });
+    }
+    return list;
+  }, [purchaseRequisitions]);
 
   // Handle auto fill on form changes or initialization
   useEffect(() => {
@@ -133,12 +168,14 @@ export default function InterStoreTransferView({
     setFormFromStoreId(val);
     const availableMats = val ? materials.filter(m => m.storeId === val) : [];
     if (availableMats.length > 0) {
+      const qtyInit = Math.min(1, availableMats[0].quantity) || 1;
       setFormItems([{
         materialId: availableMats[0].id,
         code: availableMats[0].code,
         description: availableMats[0].description,
         unit: availableMats[0].unit,
-        quantity: Math.min(1, availableMats[0].quantity),
+        quantity: qtyInit,
+        approvedQty: qtyInit,
         unitPrice: availableMats[0].unitPrice,
         remark: 'Transfer request operation deployment'
       }]);
@@ -165,6 +202,7 @@ export default function InterStoreTransferView({
       description: nextMat.description,
       unit: nextMat.unit,
       quantity: 1,
+      approvedQty: 1,
       unitPrice: nextMat.unitPrice,
       remark: 'Site operations'
     }]);
@@ -174,6 +212,9 @@ export default function InterStoreTransferView({
     setFormItems(prev => prev.map((item, idx) => {
       if (idx === index) {
         const updated = { ...item, [field]: value };
+        if (field === 'quantity') {
+          updated.approvedQty = Number(value);
+        }
         if (field === 'materialId') {
           const matchedMat = materials.find(m => m.id === value);
           if (matchedMat) {
@@ -240,6 +281,15 @@ export default function InterStoreTransferView({
     };
 
     onSaveTransfer(newTransfer);
+    
+    // Mark associated ISTV Request as Converted
+    if (linkedRequestId) {
+      setIstvRequests(prev => prev.map(req => 
+        req.id === linkedRequestId ? { ...req, status: 'Converted' } : req
+      ));
+      setLinkedRequestId(null);
+    }
+
     setIsCreating(false);
     setSelectedTransferId(newTransfer.id);
     
@@ -260,6 +310,42 @@ export default function InterStoreTransferView({
       setSuccessMessage(`Transfer record ${formatGtoNo(transferNo)} deleted successfully.`);
       setTimeout(() => setSuccessMessage(''), 3000);
     }
+  };
+
+  const handleConvertRequest = (req: any) => {
+    setIsCreating(true);
+    setSelectedTransferId(null);
+    setFormDate(new Date().toISOString().split('T')[0]);
+    // Prefill the stores
+    setFormFromStoreId(req.fromStoreId);
+    setFormToStoreId(req.toStoreId);
+    setFormRequisitionNo(req.requisitionNo);
+    
+    // Auto-compute transfer no
+    setFormTransferNo(`STV-0${Math.floor(100 + Math.random() * 899)}`);
+    setFormShippedBy('Semere Tesfaye');
+    setFormPlateNo('AA-3-B45920');
+    setFormTelephoneNo('+251 911 349102');
+
+    const matchedMat = materials.find(m => m.id === req.materialId);
+    if (matchedMat) {
+      setFormItems([{
+        materialId: req.materialId,
+        code: matchedMat.code,
+        description: matchedMat.description,
+        unit: matchedMat.unit,
+        quantity: req.quantity,
+        approvedQty: req.quantity, // Default to requested quantity, editable!
+        unitPrice: matchedMat.unitPrice,
+        remark: `ISTV Request conversion for requisition No: ${req.requisitionNo}`
+      }]);
+    } else {
+      setFormItems([]);
+    }
+    setLinkedRequestId(req.id);
+    
+    setSuccessMessage(`Request loaded into Transfer Form! Please complete the information and submit.`);
+    setTimeout(() => setSuccessMessage(''), 4500);
   };
 
   const handleEditTransfer = (record: InterStoreTransfer) => {
@@ -491,12 +577,14 @@ export default function InterStoreTransferView({
                 </Form.Item>
 
                 <Form.Item label={<span className="text-[#595959] font-bold text-xs">Material Requisition No</span>} required className="mb-3">
-                  <Input 
-                    required
-                    placeholder="e.g. MR-0994"
+                  <Select 
                     value={formRequisitionNo}
-                    onChange={(e) => setFormRequisitionNo(e.target.value)}
-                    className="h-8.5 rounded font-mono focus:border-[#033096]"
+                    onChange={(val) => setFormRequisitionNo(val)}
+                    placeholder="Select requisition"
+                    className="w-full h-8.5 text-xs font-semibold"
+                    showSearch
+                    optionFilterProp="label"
+                    options={mrOptions.map(mr => ({ value: mr.code, label: `${mr.code} — ${mr.description}` }))}
                   />
                 </Form.Item>
 
@@ -579,6 +667,7 @@ export default function InterStoreTransferView({
                         <th className="p-2 w-16 text-center">Unit</th>
                         <th className="p-2 w-20 text-center font-sans">In Stock</th>
                         <th className="p-2 w-28 text-center font-sans">ብዛት/Qty</th>
+                        <th className="p-2 w-28 text-center text-emerald-800 bg-emerald-50/45 font-sans font-bold">Approved Qty</th>
                         <th className="p-2 w-28 text-center font-sans">Unit Price (ETB)</th>
                         <th className="p-2 w-24 text-right">Total Price</th>
                         <th className="p-2 min-w-[140px]">Remark</th>
@@ -627,6 +716,17 @@ export default function InterStoreTransferView({
                                   value={item.quantity}
                                   onChange={(val) => handleUpdateFormRow(index, 'quantity', val || 0)}
                                   className="w-full max-w-[90px] font-bold rounded"
+                                />
+                              </td>
+
+                              <td className="p-1 text-center bg-emerald-50/15">
+                                <InputNumber 
+                                  min={0.01}
+                                  step={1}
+                                  required
+                                  value={item.approvedQty ?? item.quantity}
+                                  onChange={(val) => handleUpdateFormRow(index, 'approvedQty', val || 0)}
+                                  className="w-full max-w-[90px] font-bold rounded border-emerald-300 bg-emerald-50/10 text-emerald-800 focus:border-emerald-600 focus:ring-emerald-250"
                                 />
                               </td>
 
@@ -871,166 +971,307 @@ export default function InterStoreTransferView({
 
           </div>
 
-          {/* CHOSEN LEDGER DATA TABLE REPRESENTATION */}
-          <div className="bg-white border border-[#eaeaea] rounded-[6px] overflow-hidden shadow-xs">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
             
-            <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse select-text">
-                
-                {/* 1. Header Styling matches lilac screenshot backdrop */}
-                <thead>
-                  <tr className="bg-[#FDE4DA] text-[#4f4f92] border-b border-[#eaeaea] text-[11px] font-bold uppercase tracking-wide select-none">
-                    <th className="p-4 pl-5 w-24 text-left font-serif">GTO <span className="text-slate-350 pr-1 select-none">↕</span></th>
-                    <th className="p-4 w-28 text-left font-serif">Date <span className="text-slate-350 pr-1 select-none">↕</span></th>
-                    <th className="p-4 min-w-[140px] text-left">Receiving Store</th>
-                    <th className="p-4 min-w-[140px] text-left">Dispatch Store</th>
-                    <th className="p-4 min-w-[200px] text-left">Item</th>
-                    <th className="p-4 w-16 text-center">Share</th>
-                    <th className="p-4 w-28 text-center">Status</th>
-                    <th className="p-4 w-44 text-center">Action</th>
-                  </tr>
-                </thead>
+            {/* ========================================================= */}
+            {/* LEFT SIDE PANEL: ISTV REQUESTS (4 columns wide)           */}
+            {/* ========================================================= */}
+            <div className="lg:col-span-4 bg-amber-50/15 border border-amber-200 p-4 rounded-lg shadow-3xs space-y-4 text-left">
+              
+              <div className="flex items-center justify-between border-b border-amber-200/60 pb-3">
+                <div>
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-amber-900 flex items-center gap-1.5 font-sans">
+                    <CheckCircleOutlined className="text-amber-700 text-xs" />
+                    <span>ISTV Pending Requests</span>
+                  </h3>
+                  <p className="text-[10px] text-amber-800/80 leading-tight">Interactive Request Panel</p>
+                </div>
+              </div>
 
-                {/* 2. Ledger rows exactly matching the row design inside screenshot */}
-                <tbody className="divide-y divide-[#efeff3] text-xs font-normal text-[#1a1a1a]">
-                  {filteredTransfers.length === 0 ? (
-                    <tr>
-                      <td colSpan={8} className="p-16 text-center text-slate-400 italic">
-                        No inter-store transfer voucher registrations discovered for specified criteria.
-                      </td>
-                    </tr>
-                  ) : (
-                    filteredTransfers.map((tx) => {
-                      const listStr = formatItemsList(tx.items);
-                      
-                      return (
-                        <tr 
-                          key={tx.id} 
-                          className="hover:bg-slate-50/60 transition-colors duration-150 relative h-16"
-                        >
-                          {/* GTO */}
-                          <td className="p-4 pl-5 font-bold font-mono text-[#1a1a1a] text-[12px] whitespace-nowrap">
-                            {formatGtoNo(tx.transferNo)}
+              {/* LIST OF REQUESTS */}
+              <div className="space-y-3 shrink-0">
+                {istvRequests.map((req) => {
+                  const item = materials.find(m => m.id === req.materialId);
+                  const fromStore = stores.find(s => s.id === req.fromStoreId);
+                  const toStore = stores.find(s => s.id === req.toStoreId);
+                  
+                  return (
+                    <div 
+                      key={req.id} 
+                      className={`p-3 rounded-lg border text-xs shadow-3xs transition duration-150 relative text-left ${
+                        req.status === 'Converted'
+                          ? 'bg-slate-50 text-slate-500 border-slate-200'
+                          : req.status === 'Rejected'
+                            ? 'bg-rose-50/50 border-red-105 text-slate-600'
+                            : 'bg-white border-amber-205 hover:border-amber-400'
+                      }`}
+                    >
+                      {/* Title indicator */}
+                      <div className="flex items-center justify-between mb-2 select-none">
+                        <span className="font-bold text-[10px] font-mono tracking-wide px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-800">
+                          {req.requisitionNo}
+                        </span>
+                        
+                        <div className="flex items-center gap-1.5 h-4">
+                          <span className={`text-[8.5px] px-1.5 py-0.5 font-extrabold uppercase rounded-full leading-none ${
+                            req.type === 'Via SIV' 
+                              ? 'bg-purple-100 text-purple-800' 
+                              : 'bg-indigo-100 text-indigo-800'
+                          }`}>
+                            {req.type}
+                          </span>
+                          
+                          <span className={`text-[8.5px] px-1.5 py-0.5 font-semibold rounded-full leading-none ${
+                            req.status === 'Converted'
+                              ? 'bg-emerald-100 text-emerald-800'
+                              : req.status === 'Rejected'
+                                ? 'bg-red-100 text-red-800'
+                                : 'bg-amber-100 text-amber-800 animate-pulse'
+                          }`}>
+                            {req.status}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Content details */}
+                      <div className="space-y-1 text-[11px] leading-relaxed mb-3 text-left">
+                        <div>
+                          <span className="text-slate-400 font-sans">Material Requested:</span>{' '}
+                          <strong className="text-slate-850 block font-sans">{item ? `${item.code} - ${item.description}` : req.materialId}</strong>
+                        </div>
+                        
+                        <div className="grid grid-cols-2 gap-2 py-1 border-t border-b border-dashed border-slate-100 my-1">
+                          <div>
+                            <span className="text-slate-400 font-sans text-[10px]">From Store:</span>{' '}
+                            <span className="font-semibold text-slate-700 block truncate">{fromStore?.name || 'Yard A'}</span>
+                          </div>
+                          <div>
+                            <span className="text-slate-400 font-sans text-[10px]">To Store:</span>{' '}
+                            <span className="font-semibold text-slate-700 block truncate">{toStore?.name || 'Yard B'}</span>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center justify-between text-[11px] font-mono mt-1 bg-slate-50/80 p-1 rounded">
+                          <div>
+                            Requested Qty:{' '}
+                            <strong className="text-slate-800 font-serif font-bold">{req.quantity} {item?.unit || 'PCS'}</strong>
+                          </div>
+                        </div>
+
+                        {req.sivNo && (
+                          <div className="text-[9.5px] text-purple-700 font-bold mt-1 bg-purple-50/40 px-1.5 py-0.5 rounded font-mono">
+                            SIV Ref: {req.sivNo}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Interaction Actions */}
+                      {req.status === 'Pending' && (
+                        <div className="flex items-center gap-1.5 border-t border-slate-100 pt-2 select-none h-7">
+                          <Button
+                            type="primary"
+                            size="small"
+                            onClick={() => handleConvertRequest(req)}
+                            icon={<SyncOutlined className="text-[9px]" />}
+                            className="flex-1 bg-emerald-600 hover:bg-emerald-700 border-emerald-600 hover:border-emerald-700 text-white font-bold text-[10px] h-7 flex items-center justify-center gap-1"
+                          >
+                            Convert to ISTV
+                          </Button>
+                          
+                          <Button
+                            type="default"
+                            danger
+                            size="small"
+                            onClick={() => {
+                              if (window.confirm('Are you sure you want to reject this request?')) {
+                                setIstvRequests(prev => prev.map(r => r.id === req.id ? { ...r, status: 'Rejected' } : r));
+                              }
+                            }}
+                            className="h-7 text-[10px] font-semibold flex items-center justify-center px-2 border-slate-200"
+                          >
+                            Reject
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+
+            </div>
+
+            {/* ========================================================= */}
+            {/* RIGHT SIDE PANEL: DISCOVERED VOUCHERS LIST (8 columns)    */}
+            {/* ========================================================= */}
+            <div className="lg:col-span-8">
+              
+              <div className="bg-white border border-[#eaeaea] rounded-[6px] overflow-hidden shadow-xs">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse select-text">
+                    
+                    {/* 1. Header Styling matches lilac screenshot backdrop */}
+                    <thead>
+                      <tr className="bg-[#f6f5fc] text-[#4f4f92] border-b border-[#eaeaea] text-[11px] font-bold uppercase tracking-wide select-none">
+                        <th className="p-4 pl-5 w-24 text-left font-serif">GTO <span className="text-slate-350 pr-1 select-none">↕</span></th>
+                        <th className="p-4 w-28 text-left font-serif">Date <span className="text-slate-350 pr-1 select-none">↕</span></th>
+                        <th className="p-4 min-w-[140px] text-left">Receiving Store</th>
+                        <th className="p-4 min-w-[140px] text-left">Dispatch Store</th>
+                        <th className="p-4 min-w-[200px] text-left">Item</th>
+                        <th className="p-4 w-16 text-center">Share</th>
+                        <th className="p-4 w-28 text-center">Status</th>
+                        <th className="p-4 w-44 text-center">Action</th>
+                      </tr>
+                    </thead>
+
+                    {/* 2. Ledger rows exactly matching the row design inside screenshot */}
+                    <tbody className="divide-y divide-[#efeff3] text-xs font-normal text-[#1a1a1a]">
+                      {filteredTransfers.length === 0 ? (
+                        <tr>
+                          <td colSpan={8} className="p-16 text-center text-slate-400 italic">
+                            No inter-store transfer voucher registrations discovered for specified criteria.
                           </td>
-
-                          {/* Date */}
-                          <td className="p-4 font-bold text-[#1a1a19] text-[11px] font-sans whitespace-nowrap">
-                            {parseDisplayDate(tx.date)}
-                          </td>
-
-                          {/* Receiving Store (split names bold/thin) */}
-                          <td className="p-4">
-                            {renderStoreCell(tx.toStoreId)}
-                          </td>
-
-                          {/* Dispatch Store (split names bold/thin) */}
-                          <td className="p-4">
-                            {renderStoreCell(tx.fromStoreId)}
-                          </td>
-
-                          {/* Item (Concatenated materials descriptions) */}
-                          <td className="p-4 text-slate-650 font-medium text-[11px] max-w-sm truncate leading-snug select-text">
-                            <Tooltip title={tx.items.map(it => `${it.description} (${it.quantity} ${it.unit})`).join(' | ')}>
-                              <span className="cursor-help">{listStr}</span>
-                            </Tooltip>
-                          </td>
-
-                          {/* Share button */}
-                          <td className="p-4 text-center">
-                            <Tooltip title="Copy">
-                              <button 
-                                onClick={() => handleCopyShareLink(tx)}
-                                className="p-1.5 bg-transparent border-0 text-[#8B879B] hover:text-[#033096] rounded hover:bg-slate-100 cursor-pointer transition active:scale-90"
-                              >
-                                <Share2 size={13} strokeWidth={2.4} />
-                              </button>
-                            </Tooltip>
-                          </td>
-
-                          {/* Status - styled similarly to yellow Pending (1) */}
-                          <td className="p-4 text-center whitespace-nowrap">
-                            {tx.status === 'Draft' ? (
-                              <span className="inline-flex items-center px-2.5 py-1 text-[10px] font-bold bg-[#fffad2] text-[#856404] border border-[#ffeeba] rounded-full shadow-3xs select-none">
-                                Pending (1)
-                              </span>
-                            ) : (
-                              <span className="inline-flex items-center px-2.5 py-1 text-[10px] font-bold bg-[#e6ffea] text-[#155724] border border-[#c3e6cb] rounded-full shadow-3xs select-none">
-                                Posted
-                              </span>
-                            )}
-                          </td>
-
-                          {/* Action - exact 5 button slots layout */}
-                          <td className="p-4 text-center select-none">
-                            <div className="flex items-center justify-center gap-1.5">
-                              
-                              {/* 1. Preview (Eye icon) */}
-                              <Tooltip title="View">
-                                <button
-                                  onClick={() => {
-                                    setSelectedTransferId(tx.id);
-                                    setIsViewingVoucher(true);
-                                  }}
-                                  className="p-1.5 bg-transparent border-0 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded transition cursor-pointer select-none"
-                                >
-                                  <Eye size={13} strokeWidth={2.2} />
-                                </button>
-                              </Tooltip>
-
-                              {/* 2. Direct edit (Black pencil) */}
-                              <Tooltip title="Edit">
-                                <button
-                                  onClick={() => handleEditTransfer(tx)}
-                                  style={{ color: '#2C2C2C' }}
-                                  className="p-1.5 bg-transparent border-0 hover:text-black hover:bg-slate-100 rounded transition cursor-pointer select-none"
-                                >
-                                  <EditOutlined style={{ fontSize: '13px' }} />
-                                </button>
-                              </Tooltip>
-
-                              {/* 3. Detailed spreadsheet representation (Blue edit) */}
-                              <Tooltip title="View">
-                                <button
-                                  onClick={() => handleEditTransfer(tx)}
-                                  className="p-1.5 bg-transparent border-0 text-[#177ff3] hover:text-[#033096] hover:bg-slate-100 rounded transition cursor-pointer select-none"
-                                >
-                                  <FileSpreadsheet size={13} strokeWidth={2.2} />
-                                </button>
-                              </Tooltip>
-
-                              {/* 4. Print (Printer) */}
-                              <Tooltip title="Print">
-                                <button
-                                  onClick={() => {
-                                    setSelectedTransferId(tx.id);
-                                    setTimeout(() => window.print(), 100);
-                                  }}
-                                  className="p-1.5 bg-transparent border-0 text-slate-550 hover:text-slate-800 hover:bg-slate-100 rounded transition cursor-pointer select-none"
-                                >
-                                  <Printer size={13} strokeWidth={2.2} />
-                                </button>
-                              </Tooltip>
-
-                              {/* 5. Delete (Red Trash) */}
-                              <Tooltip title="Delete">
-                                <button
-                                  onClick={() => handleDeleteTransferItem(tx.id, tx.transferNo)}
-                                  className="p-1.5 bg-transparent border-0 text-red-500 hover:text-red-700 hover:bg-red-50/50 rounded transition cursor-pointer select-none"
-                                >
-                                  <Trash2 size={13} />
-                                </button>
-                              </Tooltip>
-
-                            </div>
-                          </td>
-
                         </tr>
-                      );
-                    })
-                  )}
-                </tbody>
+                      ) : (
+                        filteredTransfers.map((tx) => {
+                          const listStr = formatItemsList(tx.items);
+                          
+                          return (
+                            <tr 
+                              key={tx.id} 
+                              className="hover:bg-slate-50/60 transition-colors duration-150 relative h-16"
+                            >
+                              {/* GTO */}
+                              <td className="p-4 pl-5 font-bold font-mono text-[#1a1a1a] text-[12px] whitespace-nowrap">
+                                {formatGtoNo(tx.transferNo)}
+                              </td>
 
-              </table>
+                              {/* Date */}
+                              <td className="p-4 font-bold text-[#1a1a19] text-[11px] font-sans whitespace-nowrap">
+                                {parseDisplayDate(tx.date)}
+                              </td>
+
+                              {/* Receiving Store (split names bold/thin) */}
+                              <td className="p-4">
+                                {renderStoreCell(tx.toStoreId)}
+                              </td>
+
+                              {/* Dispatch Store (split names bold/thin) */}
+                              <td className="p-4">
+                                {renderStoreCell(tx.fromStoreId)}
+                              </td>
+
+                               {/* Item (Concatenated materials descriptions with Approved Qty explicitly) */}
+                               <td className="p-4 text-slate-650 font-medium text-[11px] max-w-sm truncate leading-snug select-text">
+                                 <Tooltip title={tx.items.map(it => `${it.description} (Req: ${it.quantity} ${it.unit} | Appr: ${it.approvedQty ?? it.quantity} ${it.unit})`).join(' | ')}>
+                                   <div className="flex flex-col gap-0.5 cursor-help text-left">
+                                     <span className="font-semibold text-slate-700">{listStr}</span>
+                                     <div className="text-[10px] text-emerald-700 font-semibold font-sans flex items-center gap-1.5 leading-none">
+                                       <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block"></span>
+                                       <span>Approved Qty: {tx.items.map(it => `${it.approvedQty ?? it.quantity} ${it.unit}`).join(', ')}</span>
+                                     </div>
+                                   </div>
+                                 </Tooltip>
+                               </td>
+
+                              {/* Share button */}
+                              <td className="p-4 text-center">
+                                <Tooltip title="Copy voucher details to share">
+                                  <button 
+                                    onClick={() => handleCopyShareLink(tx)}
+                                    className="p-1.5 bg-transparent border-0 text-[#8B879B] hover:text-[#033096] rounded hover:bg-slate-100 cursor-pointer transition active:scale-90"
+                                  >
+                                    <Share2 size={13} strokeWidth={2.4} />
+                                  </button>
+                                </Tooltip>
+                              </td>
+
+                              {/* Status - styled similarly to yellow Pending (1) */}
+                              <td className="p-4 text-center whitespace-nowrap">
+                                {tx.status === 'Draft' ? (
+                                  <span className="inline-flex items-center px-2.5 py-1 text-[10px] font-bold bg-[#fffad2] text-[#856404] border border-[#ffeeba] rounded-full shadow-3xs select-none">
+                                    Pending (1)
+                                  </span>
+                                ) : (
+                                  <span className="inline-flex items-center px-2.5 py-1 text-[10px] font-bold bg-[#e6ffea] text-[#155724] border border-[#c3e6cb] rounded-full shadow-3xs select-none">
+                                    Posted
+                                  </span>
+                                )}
+                              </td>
+
+                              {/* Action - exact 5 button slots layout */}
+                              <td className="p-4 text-center select-none">
+                                <div className="flex items-center justify-center gap-1.5">
+                                  
+                                  {/* 1. Preview (Eye icon) */}
+                                  <Tooltip title="View voucher manifest sheet">
+                                    <button
+                                      onClick={() => {
+                                        setSelectedTransferId(tx.id);
+                                        setIsViewingVoucher(true);
+                                      }}
+                                      className="p-1.5 bg-transparent border-0 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded transition cursor-pointer select-none"
+                                    >
+                                      <Eye size={13} strokeWidth={2.2} />
+                                    </button>
+                                  </Tooltip>
+
+                                  {/* 2. Direct edit (Black pencil) */}
+                                  <Tooltip title="Edit voucher records">
+                                    <button
+                                      onClick={() => handleEditTransfer(tx)}
+                                      style={{ color: '#2C2C2C' }}
+                                      className="p-1.5 bg-transparent border-0 hover:text-black hover:bg-slate-100 rounded transition cursor-pointer select-none"
+                                    >
+                                      <EditOutlined style={{ fontSize: '13px' }} />
+                                    </button>
+                                  </Tooltip>
+
+                                  {/* 3. Detailed spreadsheet representation (Blue edit) */}
+                                  <Tooltip title="View transfer details spec">
+                                    <button
+                                      onClick={() => handleEditTransfer(tx)}
+                                      className="p-1.5 bg-transparent border-0 text-[#177ff3] hover:text-[#033096] hover:bg-slate-100 rounded transition cursor-pointer select-none"
+                                    >
+                                      <FileSpreadsheet size={13} strokeWidth={2.2} />
+                                    </button>
+                                  </Tooltip>
+
+                                  {/* 4. Print (Printer) */}
+                                  <Tooltip title="Print physical copy">
+                                    <button
+                                      onClick={() => {
+                                        setSelectedTransferId(tx.id);
+                                        setTimeout(() => window.print(), 100);
+                                      }}
+                                      className="p-1.5 bg-transparent border-0 text-slate-550 hover:text-slate-800 hover:bg-slate-100 rounded transition cursor-pointer select-none"
+                                    >
+                                      <Printer size={13} strokeWidth={2.2} />
+                                    </button>
+                                  </Tooltip>
+
+                                  {/* 5. Delete (Red Trash) */}
+                                  <Tooltip title="Delete transaction file">
+                                    <button
+                                      onClick={() => handleDeleteTransferItem(tx.id, tx.transferNo)}
+                                      className="p-1.5 bg-transparent border-0 text-red-500 hover:text-red-700 hover:bg-red-50/50 rounded transition cursor-pointer select-none"
+                                    >
+                                      <Trash2 size={13} />
+                                    </button>
+                                  </Tooltip>
+
+                                </div>
+                              </td>
+
+                            </tr>
+                          );
+                        })
+                      )}
+                    </tbody>
+
+                  </table>
+                </div>
+              </div>
+
             </div>
 
           </div>

@@ -143,6 +143,18 @@ export const INITIAL_MATERIALS: Material[] = [
     storeId: 'store-1',
     remarks: 'Imported granite thread tiling',
     createdAt: '2024-07-01'
+  },
+  {
+    id: 'mat-10',
+    code: '0129',
+    category: 'Construction Material',
+    description: 'GYPSUM 25 KG FOR CHAK',
+    unit: 'Bag',
+    quantity: 120,
+    unitPrice: 350,
+    storeId: 'store-1',
+    remarks: 'Imported high-finishing Gypsum plaster',
+    createdAt: '2026-06-04'
   }
 ];
 

@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { Layout, Button, Table, Dropdown, DatePicker } from 'antd';
+import { Layout, Button, Table, Dropdown, DatePicker, Modal, Select, Tooltip, Tag } from 'antd';
 import dayjs from 'dayjs';
-import { PlusOutlined, EditOutlined, DeleteOutlined, MoreOutlined } from '@ant-design/icons';
+import { PlusOutlined, EditOutlined, DeleteOutlined, MoreOutlined, EyeOutlined, SyncOutlined, ShareAltOutlined } from '@ant-design/icons';
 import { 
   Plus, 
   Search, 
   Edit3, 
   Trash2, 
+  Edit,
   Filter, 
   Layers, 
   Building2, 
@@ -168,9 +169,54 @@ function generateDefaultTransactions(): BinCardTransaction[] {
     plateNumber: '3-05554'
   });
 
+  // Seeds for GYPSUM 25 KG FOR CHAK (mat-10) matching the GRV screenshot
+  seeds.push({
+    id: 'seed-gypsum-1',
+    materialId: 'mat-10',
+    date: '2026-06-04',
+    grnSivNo: 'GRN-6218',
+    receivedQty: 40,
+    balance: 40,
+    unitPrice: 350,
+    remark: 'Goods Receiving Note - Gypsum',
+    signature: 'E.A.',
+    receivedBy: 'Endalkachew Amogne',
+    supplierName: 'Yonatan BT plc',
+    padReferenceNumber: '22315',
+    qaStatus: 'Approved' // Representing "Checked (1)"
+  });
+  seeds.push({
+    id: 'seed-gypsum-2',
+    materialId: 'mat-10',
+    date: '2026-06-04',
+    grnSivNo: 'GRN-6219',
+    receivedQty: 40,
+    balance: 80,
+    unitPrice: 350,
+    remark: 'Goods Receiving Note - Gypsum',
+    signature: 'E.A.',
+    receivedBy: 'Endalkachew Amogne',
+    supplierName: 'Yonatan BT plc',
+    padReferenceNumber: '22316'
+  });
+  seeds.push({
+    id: 'seed-gypsum-3',
+    materialId: 'mat-10',
+    date: '2026-06-04',
+    grnSivNo: 'GRN-6220',
+    receivedQty: 40,
+    balance: 120,
+    unitPrice: 350,
+    remark: 'Goods Receiving Note - Gypsum',
+    signature: 'E.A.',
+    receivedBy: 'Endalkachew Amogne',
+    supplierName: 'Yonatan BT plc',
+    padReferenceNumber: '22317'
+  });
+
   // For any other initial material, let's auto-generate a Beginning stock transaction
   INITIAL_MATERIALS.forEach(m => {
-    if (!['mat-1', 'mat-2', 'mat-3', 'mat-9'].includes(m.id)) {
+    if (!['mat-1', 'mat-2', 'mat-3', 'mat-9', 'mat-10'].includes(m.id)) {
       seeds.push({
         id: `seed-auto-${m.id}`,
         materialId: m.id,
@@ -201,7 +247,15 @@ export default function App() {
   // Load materials from local storage or fallback to initial seed
   const [materials, setMaterials] = useState<Material[]>(() => {
     const saved = localStorage.getItem('condigital_materials');
-    return saved ? JSON.parse(saved) : INITIAL_MATERIALS;
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      if (!parsed.some((m: any) => m.id === 'mat-10')) {
+        const item = INITIAL_MATERIALS.find(m => m.id === 'mat-10');
+        if (item) parsed.push(item);
+      }
+      return parsed;
+    }
+    return INITIAL_MATERIALS;
   });
 
   // Load system registration users
@@ -248,6 +302,55 @@ export default function App() {
   const [materialStartDate, setMaterialStartDate] = useState<string>('');
   const [materialEndDate, setMaterialEndDate] = useState<string>('');
   const [activeSubTab, setActiveSubTab] = useState<string>('Material');
+  const [isGrvMode, setIsGrvMode] = useState<boolean>(false);
+  const [isSivMode, setIsSivMode] = useState<boolean>(false);
+
+  // Lifted ISTV Requests state
+  const [istvRequests, setIstvRequests] = useState<any[]>(() => {
+    const saved = localStorage.getItem('condigital_istv_requests');
+    if (saved) return JSON.parse(saved);
+    return [
+      {
+        id: 'req-1',
+        code: 'REQ-1082',
+        requisitionNo: 'MR-1082',
+        materialId: 'mat-1',
+        quantity: 45,
+        fromStoreId: 'store-1',
+        toStoreId: 'store-2',
+        date: '2026-06-03',
+        status: 'Pending',
+        type: 'Via SIV',
+        sivNo: 'SIV-045'
+      },
+      {
+        id: 'req-3',
+        code: 'REQ-3310',
+        requisitionNo: 'MR-3310',
+        materialId: 'mat-3',
+        quantity: 30,
+        fromStoreId: 'store-2',
+        toStoreId: 'store-1',
+        date: '2026-06-08',
+        status: 'Converted',
+        type: 'Via SIV',
+        sivNo: 'SIV-048'
+      }
+    ];
+  });
+
+  // Keep istvRequests in localStorage updated
+  useEffect(() => {
+    localStorage.setItem('condigital_istv_requests', JSON.stringify(istvRequests));
+  }, [istvRequests]);
+
+  // SIV to ISTV conversion states
+  const [convertingSiv, setConvertingSiv] = useState<any | null>(null);
+  const [conversionToStoreId, setConversionToStoreId] = useState<string>('');
+
+  // SIV detail preview states
+  const [selectedSivForView, setSelectedSivForView] = useState<any | null>(null);
+  const [isSivDetailOpen, setIsSivDetailOpen] = useState<boolean>(false);
 
   // Modals state
   const [isStoreModalOpen, setIsStoreModalOpen] = useState(false);
@@ -265,7 +368,16 @@ export default function App() {
   // Load bin card transactions from localStorage or fallback to default seed
   const [binTransactions, setBinTransactions] = useState<BinCardTransaction[]>(() => {
     const saved = localStorage.getItem('condigital_bin_transactions');
-    return saved ? JSON.parse(saved) : generateDefaultTransactions();
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      if (!parsed.some((t: any) => t.id === 'seed-gypsum-1')) {
+        const defaultTxs = generateDefaultTransactions();
+        const gypsumTxs = defaultTxs.filter(t => t.id.startsWith('seed-gypsum-'));
+        parsed.push(...gypsumTxs);
+      }
+      return parsed;
+    }
+    return generateDefaultTransactions();
   });
 
   // Sync state to local storage
@@ -563,6 +675,41 @@ export default function App() {
 
       setMaterials(updatedMaterials);
       return updatedTxs.sort((a, b) => a.date.localeCompare(b.date));
+    });
+  };
+
+  const handleConfirmSivConversion = () => {
+    if (!convertingSiv) return;
+    if (!conversionToStoreId) {
+      alert('Please specify the recipient yard (To Store) for the transfer.');
+      return;
+    }
+    const mat = materials.find(m => m.id === convertingSiv.materialId);
+    const rNo = `MR-${Math.floor(1000 + Math.random() * 9000)}`;
+    const newReq = {
+      id: `req-siv-${convertingSiv.id}`,
+      code: `REQ-${Math.floor(1000 + Math.random() * 9000)}`,
+      requisitionNo: rNo,
+      materialId: convertingSiv.materialId,
+      quantity: convertingSiv.issuedQty || 0,
+      fromStoreId: mat?.storeId || 'store-1',
+      toStoreId: conversionToStoreId,
+      date: new Date().toISOString().split('T')[0],
+      status: 'Pending',
+      type: 'Via SIV',
+      sivNo: convertingSiv.grnSivNo
+    };
+
+    setIstvRequests(prev => [newReq, ...prev]);
+    setConvertingSiv(null);
+    setConversionToStoreId('');
+
+    // Redirect user to Inter-Store Transfer tab
+    setActiveSubTab('Inter-Store Transfer');
+    
+    Modal.success({
+      title: 'SIV to ISTVR Conversion Successful',
+      content: `Voucher SIV ${convertingSiv.grnSivNo} has been successfully converted to an Inter-Store Transfer Request under Requisition ${rNo}. You have been redirected to the transfer pipeline!`,
     });
   };
 
@@ -931,6 +1078,61 @@ export default function App() {
     );
   });
 
+  // Filter and sort GRVs for the Good Received Voucher visual view
+  const activeGrvs = binTransactions.filter(t => {
+    return t.receivedQty !== undefined && t.receivedQty > 0 && t.grnSivNo.startsWith('GRN');
+  });
+
+  const filteredGrvs = activeGrvs.filter(t => {
+    const material = materials.find(m => m.id === t.materialId);
+    const itemDesc = material ? material.description : '';
+    const code = t.grnSivNo || '';
+    const supplier = t.supplierName || 'Yonatan BT plc';
+    const received = t.receivedBy || 'Endalkachew Amogne';
+    const q = materialSearchQuery.toLowerCase().trim();
+
+    const matchesSearch = 
+      code.toLowerCase().includes(q) ||
+      itemDesc.toLowerCase().includes(q) ||
+      supplier.toLowerCase().includes(q) ||
+      received.toLowerCase().includes(q) ||
+      (t.padReferenceNumber || '').includes(q);
+
+    const matchesStore = selectedStoreId === 'all' || (material && material.storeId === selectedStoreId);
+
+    let matchesDate = true;
+    if (materialStartDate && t.date < materialStartDate) matchesDate = false;
+    if (materialEndDate && t.date > materialEndDate) matchesDate = false;
+
+    return matchesSearch && matchesStore && matchesDate;
+  }).sort((a, b) => b.grnSivNo.localeCompare(a.grnSivNo));
+
+  // Filter and sort SIVs for the Store Issue Voucher visual view
+  const activeSivs = binTransactions.filter(t => {
+    return t.issuedQty !== undefined && t.issuedQty > 0 && t.grnSivNo && t.grnSivNo.startsWith('SIV');
+  });
+
+  const filteredSivs = activeSivs.filter(t => {
+    const material = materials.find(m => m.id === t.materialId);
+    const itemDesc = material ? material.description : '';
+    const code = t.grnSivNo || '';
+    const issuedTo = t.remark?.includes('Issued to') ? t.remark.split('Issued to')[1].trim() : 'Project Site Workforce';
+    const q = materialSearchQuery.toLowerCase().trim();
+
+    const matchesSearch = 
+      code.toLowerCase().includes(q) ||
+      itemDesc.toLowerCase().includes(q) ||
+      issuedTo.toLowerCase().includes(q);
+
+    const matchesStore = selectedStoreId === 'all' || (material && material.storeId === selectedStoreId);
+
+    let matchesDate = true;
+    if (materialStartDate && t.date < materialStartDate) matchesDate = false;
+    if (materialEndDate && t.date > materialEndDate) matchesDate = false;
+
+    return matchesSearch && matchesStore && matchesDate;
+  }).sort((a, b) => b.grnSivNo.localeCompare(a.grnSivNo));
+
   const activeStore = stores.find(s => s.id === selectedStoreId) || null;
 
   // Render a visual category icon
@@ -966,19 +1168,36 @@ export default function App() {
       title: 'Description',
       dataIndex: 'description',
       key: 'description',
-      render: (text: string, record: Material) => (
-        <div className="flex flex-col text-left">
-          <span className="font-bold text-slate-800 hover:text-[#033096] hover:underline leading-snug transition-colors">
-            {text}
-          </span>
-          <span className="text-[10px] text-slate-400 font-medium flex items-center gap-1 mt-0.5">
-            <svg className="w-3 h-3 text-[#033096]/60 inline animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-            </svg>
-            <span>Open Ledger Card ({record.quantity} {record.unit} in stock)</span>
-          </span>
-        </div>
-      ),
+      render: (text: string, record: Material) => {
+        const hasGrv = binTransactions.some(t => {
+          return t.materialId === record.id && 
+                 t.grnSivNo.startsWith('GRN') && 
+                 t.receivedQty !== undefined && 
+                 t.receivedQty > 0 &&
+                 t.grnSivNo !== 'GRN-001';
+        });
+        return (
+          <div className="flex flex-col text-left">
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className="font-bold text-slate-800 hover:text-[#033096] hover:underline leading-snug transition-colors">
+                {text}
+              </span>
+              {hasGrv && (
+                <span className="bg-emerald-100 text-emerald-800 border border-emerald-300 rounded font-bold text-[9px] px-1.5 py-0.5 shadow-3xs uppercase tracking-wider inline-flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                  GRV Inbound
+                </span>
+              )}
+            </div>
+            <span className="text-[10px] text-slate-400 font-medium flex items-center gap-1 mt-0.5">
+              <svg className="w-3 h-3 text-[#033096]/60 inline animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+              </svg>
+              <span>Open Ledger Card ({record.quantity} {record.unit} in stock)</span>
+            </span>
+          </div>
+        );
+      },
     },
     {
       title: 'Item Category',
@@ -1036,6 +1255,330 @@ export default function App() {
     }
   ];
 
+  const grvTableColumns = [
+    {
+      title: 'Date',
+      key: 'date',
+      width: 100,
+      className: 'font-semibold text-slate-700 text-xs',
+      render: (record: BinCardTransaction) => dayjs(record.date).format('DD/MM/YYYY'),
+    },
+    {
+      title: 'GRN',
+      dataIndex: 'grnSivNo',
+      key: 'grnSivNo',
+      width: 110,
+      className: 'font-mono font-bold text-slate-800 text-xs',
+    },
+    {
+      title: 'Received By',
+      key: 'receivedBy',
+      width: 160,
+      className: 'text-xs font-semibold text-slate-700',
+      render: (record: BinCardTransaction) => record.receivedBy || 'Endalkachew Amogne',
+    },
+    {
+      title: 'Supplier',
+      key: 'supplierName',
+      width: 160,
+      className: 'text-xs text-slate-705 font-semibold',
+      render: (record: BinCardTransaction) => record.supplierName || 'Yonatan BT plc',
+    },
+    {
+      title: 'Pad Reference Number',
+      key: 'padReferenceNumber',
+      width: 140,
+      className: 'text-xs text-slate-605 font-mono font-semibold',
+      render: (record: BinCardTransaction) => record.padReferenceNumber || '22315',
+    },
+    {
+      title: 'Items',
+      key: 'items',
+      width: 220,
+      className: 'text-xs font-bold text-slate-800',
+      render: (record: BinCardTransaction) => {
+        const material = materials.find(m => m.id === record.materialId);
+        return material ? material.description : 'GYPSUM 25 KG FOR CHAK';
+      },
+    },
+    {
+      title: 'Share',
+      key: 'share',
+      width: 100,
+      align: 'center' as const,
+      render: () => (
+        <div className="flex justify-center" onClick={(e) => e.stopPropagation()}>
+          <Button 
+            type="default"
+            size="small"
+            className="flex items-center gap-1.5 px-3 py-1 bg-white border border-slate-205 hover:bg-slate-50 hover:border-slate-350 text-slate-755 text-xs font-bold rounded-lg cursor-pointer transition shadow-3xs"
+            icon={<ShareAltOutlined style={{ fontSize: '11px' }} />}
+          >
+            Share
+          </Button>
+        </div>
+      ),
+    },
+    {
+      title: 'Status',
+      key: 'status',
+      width: 150,
+      render: (record: BinCardTransaction) => {
+        if (record.grnSivNo === 'GRN-6218' || record.qaStatus === 'Approved') {
+          return (
+            <div className="flex items-center gap-1.5 flex-wrap animate-fade">
+              <Tag color="success" className="font-bold text-[10px] m-0 border border-emerald-250 py-0.5 px-2">
+                Checked (1)
+              </Tag>
+              <Tag color="warning" className="font-bold text-[10px] m-0 border border-amber-250 py-0.5 px-2">
+                Pending (1)
+              </Tag>
+            </div>
+          );
+        }
+        return (
+          <Tag color="warning" className="font-bold text-[10px] m-0 border border-amber-250 py-0.5 px-2">
+            Pending (1)
+          </Tag>
+        );
+      },
+    },
+    {
+      title: 'Action',
+      key: 'action',
+      width: 180,
+      align: 'center' as const,
+      render: (_: unknown, record: BinCardTransaction) => {
+        const isRow3 = record.grnSivNo === 'GRN-6218';
+        return (
+          <div className="flex items-center gap-1 justify-center" onClick={e => e.stopPropagation()}>
+            <Tooltip title="View GRV Document">
+              <Button
+                type="text"
+                shape="circle"
+                size="small"
+                icon={<EyeOutlined style={{ fontSize: '14px', color: '#1e293b' }} />}
+              />
+            </Tooltip>
+            <Tooltip title="Modify Receipt Details">
+              <Button
+                type="text"
+                shape="circle"
+                size="small"
+                icon={<EditOutlined style={{ fontSize: '14px', color: '#2563eb' }} />}
+              />
+            </Tooltip>
+            <Tooltip title="Voucher validation QA review">
+              <Button
+                type="text"
+                shape="circle"
+                size="small"
+                icon={<EditOutlined style={{ fontSize: '14px', color: '#033096' }} />}
+              />
+            </Tooltip>
+            {isRow3 ? (
+              <Tooltip title="Revert/Sync transaction">
+                <Button
+                  type="text"
+                  shape="circle"
+                  size="small"
+                  icon={<SyncOutlined className="text-red-500 hover:rotate-45" style={{ fontSize: '13px' }} />}
+                />
+              </Tooltip>
+            ) : (
+              <Tooltip title="Delete entry">
+                <Button
+                  type="text"
+                  shape="circle"
+                  size="small"
+                  danger
+                  icon={<DeleteOutlined style={{ fontSize: '14px' }} />}
+                />
+              </Tooltip>
+            )}
+          </div>
+        );
+      }
+    }
+  ];
+
+  const sivTableColumns = [
+    {
+      title: 'Date',
+      key: 'date',
+      width: 100,
+      className: 'font-semibold text-slate-700 text-xs',
+      render: (record: BinCardTransaction) => dayjs(record.date).format('DD/MM/YYYY'),
+    },
+    {
+      title: 'SIV No',
+      dataIndex: 'grnSivNo',
+      key: 'grnSivNo',
+      width: 110,
+      className: 'font-mono font-bold text-slate-800 text-xs',
+    },
+    {
+      title: 'Issued To / Requested By',
+      key: 'issuedTo',
+      width: 170,
+      className: 'text-xs font-semibold text-slate-700',
+      render: (record: BinCardTransaction) => {
+        const parts = record.remark?.split('Issued to');
+        return parts && parts.length > 1 ? parts[1].trim() : 'Project Site Workforce';
+      },
+    },
+    {
+      title: 'Project / Site',
+      key: 'project',
+      width: 160,
+      className: 'text-xs font-semibold text-slate-600',
+      render: (record: BinCardTransaction) => record.remark && record.remark.includes('site') ? 'Phison Realstate SC site' : 'Civil Works Site Alpha',
+    },
+    {
+      title: 'Items',
+      key: 'items',
+      width: 220,
+      className: 'text-xs font-bold text-slate-800',
+      render: (record: BinCardTransaction) => {
+        const material = materials.find(m => m.id === record.materialId);
+        const name = material ? material.description : 'OPC Cement';
+        return `${name} (${record.issuedQty} Pcs/Bags)`;
+      },
+    },
+    {
+      title: 'Share',
+      key: 'share',
+      width: 100,
+      align: 'center' as const,
+      render: () => (
+        <div className="flex justify-center" onClick={(e) => e.stopPropagation()}>
+          <Button 
+            type="default"
+            size="small"
+            className="flex items-center gap-1.5 px-3 py-1 bg-white border border-slate-205 hover:bg-slate-50 hover:border-slate-350 text-slate-755 text-xs font-bold rounded-lg cursor-pointer transition shadow-3xs"
+            icon={<ShareAltOutlined style={{ fontSize: '11px' }} />}
+          >
+            Share
+          </Button>
+        </div>
+      ),
+    },
+    {
+      title: 'Status',
+      key: 'status',
+      width: 150,
+      render: (record: BinCardTransaction) => {
+        const req = istvRequests.find(r => r.sivNo === record.grnSivNo);
+        if (req) {
+          if (req.status === 'Converted') {
+            return (
+              <Tag color="success" className="font-bold text-[10px] m-0 border border-emerald-250 py-0.5 px-2">
+                ISTVR Converted
+              </Tag>
+            );
+          } else if (req.status === 'Rejected') {
+            return (
+              <Tag color="error" className="font-bold text-[10px] m-0 border border-rose-250 py-0.5 px-2">
+                ISTVR Rejected
+              </Tag>
+            );
+          } else {
+            return (
+              <Tag color="purple" className="font-bold text-[10px] m-0 border border-purple-250 py-0.5 px-2">
+                ISTVR Pending
+              </Tag>
+            );
+          }
+        }
+        return (
+          <Tag color="warning" className="font-bold text-[10px] m-0 border border-amber-250 py-0.5 px-2">
+            Logged
+          </Tag>
+        );
+      },
+    },
+    {
+      title: 'Action',
+      key: 'action',
+      width: 190,
+      align: 'center' as const,
+      render: (_: unknown, record: BinCardTransaction) => {
+        const hasConverted = istvRequests.some(r => r.sivNo === record.grnSivNo);
+        return (
+          <div className="flex items-center gap-1 justify-center" onClick={e => e.stopPropagation()}>
+            <Tooltip title="View SIV Document">
+              <Button
+                type="text"
+                shape="circle"
+                size="small"
+                icon={<EyeOutlined style={{ fontSize: '14px', color: '#1e293b' }} />}
+                onClick={() => {
+                  setSelectedSivForView(record);
+                  setIsSivDetailOpen(true);
+                }}
+              />
+            </Tooltip>
+            <Tooltip title="Modify Issue Details">
+              <Button
+                type="text"
+                shape="circle"
+                size="small"
+                icon={<EditOutlined style={{ fontSize: '14px', color: '#2563eb' }} />}
+                onClick={() => {
+                  Modal.info({
+                    title: 'Modify SIV Details',
+                    content: 'To edit this record, please adjust SIV reference entries directly in the ledger log. Double click the item row to open raw card transaction lists.',
+                  });
+                }}
+              />
+            </Tooltip>
+            {hasConverted ? (
+              <Button 
+                type="text" 
+                size="small" 
+                disabled 
+                className="text-[10px] font-bold text-slate-400 bg-slate-50 px-1.5 h-6 cursor-not-allowed"
+              >
+                ISTVR Active
+              </Button>
+            ) : (
+              <Button 
+                type="primary" 
+                size="small" 
+                onClick={() => {
+                  setConvertingSiv(record);
+                  setConversionToStoreId('');
+                }}
+                className="text-[10px] font-bold bg-[#033096] hover:bg-blue-800 border-none px-2 h-6"
+              >
+                Convert to ISTVR
+              </Button>
+            )}
+            <Tooltip title="Delete SIV entry">
+              <Button
+                type="text"
+                shape="circle"
+                size="small"
+                danger
+                icon={<DeleteOutlined style={{ fontSize: '14px' }} />}
+                onClick={() => {
+                  Modal.confirm({
+                    title: 'Delete SIV Entry',
+                    content: `Are you sure you want to delete SIV record ${record.grnSivNo}? This action is permanent.`,
+                    onOk: () => {
+                      setBinTransactions(prev => prev.filter(t => t.id !== record.id));
+                      setIstvRequests(prev => prev.filter(r => r.sivNo !== record.grnSivNo));
+                    }
+                  });
+                }}
+              />
+            </Tooltip>
+          </div>
+        );
+      }
+    }
+  ];
+
   return (
     <div className="min-h-screen bg-[#f1f4fa] flex flex-col font-sans select-none antialiased text-slate-800" id="main-app">
       
@@ -1048,7 +1591,7 @@ export default function App() {
       />
 
       {/* Main Container Layout */}
-      <main className="flex-1 max-w-7xl w-full mx-auto p-4 md:p-6" id="app-body">
+      <main className="flex-1 w-full p-4 md:p-6" id="app-body">
         
         {/* Sleek layout with action shortcuts */}
         <div className="mb-4 flex flex-col sm:flex-row sm:items-center justify-end gap-3">
@@ -1139,6 +1682,9 @@ export default function App() {
             transfers={transfers}
             onSaveTransfer={handleSaveTransfer}
             onDeleteTransfer={handleDeleteTransfer}
+            istvRequests={istvRequests}
+            setIstvRequests={setIstvRequests}
+            purchaseRequisitions={purchaseRequisitions}
           />
         ) : (
 
@@ -1344,9 +1890,73 @@ export default function App() {
                     </span>
                   </div>
 
+                  {/* Modern Custom Toggle Switch styled exactly like the screenshot */}
+                  <div className="flex items-center gap-1.5 select-none shrink-0" id="grv-view-toggle">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const nextVal = !isGrvMode;
+                        setIsGrvMode(nextVal);
+                        if (nextVal) setIsSivMode(false);
+                      }}
+                      className={`relative inline-flex h-6 w-[86px] items-center rounded-full transition-colors duration-200 cursor-pointer focus:outline-none px-0.5 ${
+                        isGrvMode ? 'bg-[#033096]' : 'bg-[#bdbdbd]'
+                      }`}
+                      title="Toggle Good Received Vouchers view"
+                    >
+                      <span
+                        className={`absolute top-[1.5px] bottom-0 flex items-center font-sans text-[9px] font-bold tracking-tight select-none transition-all duration-200 ${
+                          isGrvMode ? 'left-2 text-white' : 'right-2 text-white/95'
+                        }`}
+                      >
+                        Show GRV
+                      </span>
+                      <span
+                        className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-md transition duration-200 ease-in-out ${
+                          isGrvMode ? 'translate-x-[60px]' : 'translate-x-0'
+                        }`}
+                      />
+                    </button>
+                  </div>
+
+                  {/* Modern Custom Toggle Switch for SIV */}
+                  <div className="flex items-center gap-1.5 select-none shrink-0" id="siv-view-toggle">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const nextVal = !isSivMode;
+                        setIsSivMode(nextVal);
+                        if (nextVal) setIsGrvMode(false);
+                      }}
+                      className={`relative inline-flex h-6 w-[86px] items-center rounded-full transition-colors duration-200 cursor-pointer focus:outline-none px-0.5 ${
+                        isSivMode ? 'bg-[#722ed1]' : 'bg-[#bdbdbd]'
+                      }`}
+                      title="Toggle Store Issue Vouchers view"
+                    >
+                      <span
+                        className={`absolute top-[1.5px] bottom-0 flex items-center font-sans text-[9px] font-bold tracking-tight select-none transition-all duration-200 ${
+                          isSivMode ? 'left-2 text-white' : 'right-2 text-white/95'
+                        }`}
+                      >
+                        Show SIV
+                      </span>
+                      <span
+                        className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-md transition duration-200 ease-in-out ${
+                          isSivMode ? 'translate-x-[60px]' : 'translate-x-0'
+                        }`}
+                      />
+                    </button>
+                  </div>
+
                   {/* Status Count Label */}
-                  <div className="text-[11px] font-medium text-slate-400/90 flex items-center px-1">
-                    <span>{filteredMaterials.length} Materials in Full Project</span>
+                  <div className="text-[11px] font-semibold text-slate-505 bg-slate-50 border border-slate-205 px-2 py-1 rounded flex items-center">
+                    {isGrvMode ? (
+                      <span>{filteredGrvs.length} GRV Vouchers Listed</span>
+                    ) : isSivMode ? (
+                      <span>{filteredSivs.length} SIV Vouchers Listed</span>
+                    ) : (
+                      <span>{filteredMaterials.length} Materials Registered</span>
+                    )}
                   </div>
                 </div>
 
@@ -1369,34 +1979,110 @@ export default function App() {
               </div>
               {/* Robust Ant Design Table component with action dropdowns & click events */}
               <div className="bg-white border border-slate-200/60 rounded-xl overflow-hidden shadow-2xs">
-                <Table
-                  dataSource={filteredMaterials.map(m => ({ ...m, key: m.id }))}
-                  columns={materialTableColumns}
-                  pagination={{
-                    defaultPageSize: 10,
-                    showSizeChanger: true,
-                    pageSizeOptions: ['10', '25', '50'],
-                    showTotal: (total, range) => `Showing ${range[0]}-${range[1]} of ${total} results`,
-                  }}
-                  onRow={(record) => ({
-                    onClick: () => {
-                      setActiveBinCardMaterial(record);
-                      setIsBinCardOpen(true);
-                    },
-                  })}
-                  locale={{
-                    emptyText: (
-                      <div className="flex flex-col items-center justify-center p-12 text-slate-400 space-y-2">
-                        <SlidersHorizontal size={24} className="text-slate-300" />
-                        <p className="font-semibold text-slate-505 text-xs">No entries match the active filter viewport</p>
-                        <p className="text-[10px] text-slate-400 max-w-sm">
-                          Click "Show All" or select another registered store on the left stack to view listing.
-                        </p>
-                      </div>
-                    )
-                  }}
-                  className="custom-antd-table font-sans text-xs"
-                />
+                {isGrvMode ? (
+                  <Table
+                    dataSource={filteredGrvs.map(t => ({ ...t, key: t.id }))}
+                    columns={grvTableColumns}
+                    scroll={{ x: 1110 }}
+                    pagination={{
+                      defaultPageSize: 10,
+                      showSizeChanger: true,
+                      pageSizeOptions: ['10', '25', '50'],
+                      showTotal: (total, range) => `Showing ${range[0]}-${range[1]} of ${total} results`,
+                    }}
+                    onRow={(record) => ({
+                      onClick: () => {
+                        const material = materials.find(m => m.id === record.materialId);
+                        if (material) {
+                          setActiveBinCardMaterial(material);
+                          setIsBinCardOpen(true);
+                        }
+                      },
+                    })}
+                    locale={{
+                      emptyText: (
+                        <div className="flex flex-col items-center justify-center p-12 text-slate-400 space-y-2">
+                          <SlidersHorizontal size={24} className="text-slate-300" />
+                          <p className="font-semibold text-slate-505 text-xs">No GRV vouchers found for this filter viewport</p>
+                          <p className="text-[10px] text-slate-400 max-w-sm">
+                            Make sure you have registered material receipts or select a different project location.
+                          </p>
+                        </div>
+                      )
+                    }}
+                    className="custom-antd-table font-sans text-xs custom-grv-rows"
+                  />
+                ) : isSivMode ? (
+                  <Table
+                    dataSource={filteredSivs.map(t => ({ ...t, key: t.id }))}
+                    columns={sivTableColumns}
+                    scroll={{ x: 1210 }}
+                    pagination={{
+                      defaultPageSize: 10,
+                      showSizeChanger: true,
+                      pageSizeOptions: ['10', '25', '50'],
+                      showTotal: (total, range) => `Showing ${range[0]}-${range[1]} of ${total} results`,
+                    }}
+                    onRow={(record) => ({
+                      onClick: () => {
+                        setSelectedSivForView(record);
+                        setIsSivDetailOpen(true);
+                      },
+                    })}
+                    locale={{
+                      emptyText: (
+                        <div className="flex flex-col items-center justify-center p-12 text-slate-400 space-y-2">
+                          <SlidersHorizontal size={24} className="text-slate-300" />
+                          <p className="font-semibold text-slate-505 text-xs">No SIV vouchers found for this filter viewport</p>
+                          <p className="text-[10px] text-slate-400 max-w-sm">
+                            Make sure you have registered material issues or select a different project location.
+                          </p>
+                        </div>
+                      )
+                    }}
+                    className="custom-antd-table font-sans text-xs custom-siv-rows"
+                  />
+                ) : (
+                  <Table
+                    dataSource={filteredMaterials.map(m => ({ ...m, key: m.id }))}
+                    columns={materialTableColumns}
+                    scroll={{ x: 1000 }}
+                    pagination={{
+                      defaultPageSize: 10,
+                      showSizeChanger: true,
+                      pageSizeOptions: ['10', '25', '50'],
+                      showTotal: (total, range) => `Showing ${range[0]}-${range[1]} of ${total} results`,
+                    }}
+                    onRow={(record) => ({
+                      onClick: () => {
+                        setActiveBinCardMaterial(record);
+                        setIsBinCardOpen(true);
+                      },
+                    })}
+                    rowClassName={(record) => {
+                      const hasGrv = binTransactions.some(t => {
+                        return t.materialId === record.id && 
+                               t.grnSivNo.startsWith('GRN') && 
+                               t.receivedQty !== undefined && 
+                               t.receivedQty > 0 &&
+                               t.grnSivNo !== 'GRN-001';
+                      });
+                      return hasGrv ? 'bg-[#f0fdf4]/85 hover:bg-[#dcfce7]/90 border-l-[3.5px] border-emerald-500 font-medium transition-colors cursor-pointer' : 'cursor-pointer';
+                    }}
+                    locale={{
+                      emptyText: (
+                        <div className="flex flex-col items-center justify-center p-12 text-slate-400 space-y-2">
+                          <SlidersHorizontal size={24} className="text-slate-300" />
+                          <p className="font-semibold text-slate-505 text-xs">No entries match the active filter viewport</p>
+                          <p className="text-[10px] text-slate-400 max-w-sm">
+                            Click "Show All" or select another registered store on the left stack to view listing.
+                          </p>
+                        </div>
+                      )
+                    }}
+                    className="custom-antd-table font-sans text-xs"
+                  />
+                )}
               </div>
 
             </Content>
@@ -1462,8 +2148,188 @@ export default function App() {
         stores={stores}
         materials={materials}
         users={users}
+        purchaseRequisitions={purchaseRequisitions}
         onSave={handleSaveVouchers}
       />
+
+      {/* ------------------------------------------------------------- */}
+      {/* CONVERT SIV TO ISTV REQUEST MODAL                             */}
+      {/* ------------------------------------------------------------- */}
+      <Modal
+        title={
+          <div className="text-sm font-bold text-slate-800 border-b border-slate-100 pb-2 flex items-center gap-1.5 uppercase tracking-wide">
+            <span className="bg-[#722ed1] px-1.5 py-0.5 text-white rounded text-xs leading-none">SIV</span>
+            <span>Convert Store Issue Voucher to ISTVR</span>
+          </div>
+        }
+        open={convertingSiv !== null}
+        onOk={handleConfirmSivConversion}
+        onCancel={() => setConvertingSiv(null)}
+        okText="Convert to ISTV Request"
+        cancelText="Cancel"
+        okButtonProps={{ className: 'bg-[#033096] border-none font-bold text-xs h-9 shadow-sm' }}
+        cancelButtonProps={{ className: 'font-semibold text-xs h-9' }}
+        className="custom-antd-modal"
+        destroyOnClose
+      >
+        {convertingSiv && (() => {
+          const mat = materials.find(m => m.id === convertingSiv.materialId);
+          const fromStore = stores.find(s => s.id === mat?.storeId);
+          const availableToStores = stores.filter(s => s.id !== mat?.storeId);
+          return (
+            <div className="py-4 space-y-4">
+              <div className="bg-slate-50 border border-slate-200/50 p-3.5 rounded-lg space-y-2 text-xs">
+                <div className="flex justify-between"><span className="text-slate-400 font-medium">SIV Reference Code:</span> <span className="font-mono font-bold text-slate-800">{convertingSiv.grnSivNo}</span></div>
+                <div className="flex justify-between"><span className="text-slate-400 font-medium">Item Name / Desc:</span> <span className="font-bold text-slate-800 text-right">{mat?.description || 'Construction Material'}</span></div>
+                <div className="flex justify-between"><span className="text-slate-400 font-medium">Issued Quantity:</span> <span className="font-bold text-[#033096]">{convertingSiv.issuedQty} {mat?.unit || 'Units'}</span></div>
+                <div className="flex justify-between"><span className="text-slate-400 font-medium">Dispatch Yard (From):</span> <span className="font-bold text-amber-700">{fromStore?.name || 'Main Yard'}</span></div>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider">Select Recipient Yard (To Store)</label>
+                <Select
+                  value={conversionToStoreId || undefined}
+                  onChange={setConversionToStoreId}
+                  className="w-full text-xs font-semibold"
+                  placeholder="Choose target store for direct inter-store transfer"
+                  options={availableToStores.map(s => ({ value: s.id, label: `${s.name} (${s.city})` }))}
+                />
+              </div>
+            </div>
+          );
+        })()}
+      </Modal>
+
+      {/* ------------------------------------------------------------- */}
+      {/* VIEW SIV DETAIL PREVIEW MODAL                                 */}
+      {/* ------------------------------------------------------------- */}
+      <Modal
+        title={
+          <div className="text-xs uppercase font-bold tracking-wider text-slate-500 border-b pb-2 flex items-center justify-between">
+            <span>Store Issue Voucher (SIV) Details</span>
+            <span className="font-mono text-[10px] text-slate-400">Printed from ConDigital Ledger Platform</span>
+          </div>
+        }
+        open={isSivDetailOpen}
+        onCancel={() => {
+          setIsSivDetailOpen(false);
+          setSelectedSivForView(null);
+        }}
+        footer={[
+          <Button key="close" onClick={() => {
+            setIsSivDetailOpen(false);
+            setSelectedSivForView(null);
+          }} className="font-semibold text-xs h-9">
+            Close Panel
+          </Button>,
+          <Button key="print" type="primary" onClick={() => window.print()} className="bg-amber-600 hover:bg-amber-705 border-none font-bold text-xs h-9 shadow-sm">
+            Print Sheet
+          </Button>
+        ]}
+        width={650}
+        destroyOnClose
+      >
+        {selectedSivForView && (() => {
+          const mat = materials.find(m => m.id === selectedSivForView.materialId);
+          const store = stores.find(s => s.id === mat?.storeId);
+          const checkedUser = users.find(u => u.id === selectedSivForView.checkedById) || users[0];
+          const approvedUser = users.find(u => u.id === selectedSivForView.approvedById) || users[1];
+          return (
+            <div className="py-6 font-sans text-left space-y-6">
+              {/* Document Header */}
+              <div className="border-b border-dashed border-slate-300 pb-4 flex justify-between items-start">
+                <div>
+                  <h2 className="text-lg font-black tracking-tight text-slate-800 font-sans leading-none">CONDIGITAL CONSTRUCTION</h2>
+                  <p className="text-[10px] uppercase font-bold tracking-widest text-[#033096] mt-1">Store Issue Voucher (SIV)</p>
+                  <p className="text-[9px] text-slate-400 mt-0.5">SIV Ledger Record ID: {selectedSivForView.id.substring(0, 12)}</p>
+                </div>
+                <div className="text-right">
+                  <div className="bg-purple-50 text-purple-700 px-3 py-1.5 rounded border border-purple-200 font-mono text-sm font-black tracking-wider inline-block">
+                    {selectedSivForView.grnSivNo}
+                  </div>
+                  <p className="text-[10px] text-slate-500 mt-1.5 font-bold">DATE: {dayjs(selectedSivForView.date).format('DD/MM/YYYY')}</p>
+                </div>
+              </div>
+
+              {/* Grid Metadata */}
+              <div className="grid grid-cols-2 gap-4 text-xs">
+                <div className="bg-slate-50 p-3 rounded-lg border border-slate-200/60 space-y-1.5">
+                  <p className="text-[9px] font-black tracking-wider text-slate-400 uppercase">Dispatch / Issuing Center</p>
+                  <p className="font-bold text-slate-800 text-sm leading-tight">{store?.name || 'Central Warehouse Office'}</p>
+                  <p className="text-[10px] text-slate-500 font-medium">{store?.city}, {store?.wereda} | Type: {store?.type}</p>
+                </div>
+                <div className="bg-slate-50 p-3 rounded-lg border border-slate-200/60 space-y-1.5">
+                  <p className="text-[9px] font-black tracking-wider text-slate-400 uppercase">Receiving Unit / Reference</p>
+                  <p className="font-bold text-slate-800 text-sm leading-tight">Phison Realstate SC site</p>
+                  <p className="text-[10px] text-slate-500 font-medium">Requisition No: MR-{Math.floor(1000 + Math.random() * 9000)} | Civil Works Area</p>
+                </div>
+              </div>
+
+              {/* Items Receipt Table */}
+              <div className="border border-slate-200 rounded-lg overflow-hidden">
+                <table className="w-full text-xs">
+                  <thead className="bg-slate-100/80 border-b border-slate-200 font-bold text-slate-700 text-[10px] uppercase tracking-wider">
+                    <tr>
+                      <th className="px-4 py-2.5 text-left">Code</th>
+                      <th className="px-4 py-2.5 text-left">Description</th>
+                      <th className="px-4 py-2.5 text-center">Unit</th>
+                      <th className="px-4 py-2.5 text-right">Quantity</th>
+                      <th className="px-4 py-2.5 text-right">Unit Price</th>
+                      <th className="px-4 py-2.5 text-right">Total (ETB)</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-200/60 font-medium text-slate-800">
+                    <tr>
+                      <td className="px-4 py-3 font-mono text-[10px] font-bold text-slate-600">{mat?.code || 'MT-1081'}</td>
+                      <td className="px-4 py-3 text-slate-900 font-semibold">{mat?.description || 'OPC Cement (Pharaon)'}</td>
+                      <td className="px-4 py-3 text-center text-slate-500 font-bold">{mat?.unit || 'Pcs'}</td>
+                      <td className="px-4 py-3 text-right font-bold text-purple-700">{selectedSivForView.issuedQty || 0}</td>
+                      <td className="px-4 py-3 text-right font-mono text-slate-600">{selectedSivForView.unitPrice ? `${selectedSivForView.unitPrice.toLocaleString()} ETB` : '185.00 ETB'}</td>
+                      <td className="px-4 py-3 text-right font-mono font-bold text-slate-900">
+                        {((selectedSivForView.issuedQty || 0) * (selectedSivForView.unitPrice || 185)).toLocaleString()} ETB
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Signature Manifest */}
+              <div className="bg-slate-50/50 p-4 rounded-lg border border-slate-200/60 divide-y divide-slate-200/50 text-xs">
+                <div className="flex justify-between py-2 items-center">
+                  <div className="flex items-center gap-1.5 font-bold text-slate-705">
+                    <span className="text-[10px] font-extrabold bg-[#033096] text-white h-4 w-4 rounded-full flex items-center justify-center text-[9px]">1</span>
+                    <span>Issued By:</span>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-bold text-slate-800">{selectedSivForView.signature || 'Nahom T.'}</p>
+                    <p className="text-[10px] text-slate-400">System Authorized Dispatcher</p>
+                  </div>
+                </div>
+                <div className="flex justify-between py-2 items-center">
+                  <div className="flex items-center gap-1.5 font-bold text-slate-705">
+                    <span className="text-[10px] font-extrabold bg-amber-500 text-white h-4 w-4 rounded-full flex items-center justify-center text-[9px]">2</span>
+                    <span>Checked By:</span>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-bold text-slate-800">{checkedUser?.name || 'Endalkachew Amogne'}</p>
+                    <p className="text-[10px] text-slate-550 font-medium">Position: {checkedUser?.role || 'Project Engineer'}</p>
+                  </div>
+                </div>
+                <div className="flex justify-between py-2 items-center">
+                  <div className="flex items-center gap-1.5 font-bold text-slate-705">
+                    <span className="text-[10px] font-extrabold bg-indigo-600 text-white h-4 w-4 rounded-full flex items-center justify-center text-[9px]">3</span>
+                    <span>Approved By:</span>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-bold text-slate-800">{approvedUser?.name || 'Yonatan BT plc'}</p>
+                    <p className="text-[10px] text-slate-550 font-medium">Position: {approvedUser?.role || 'Project Manager'}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
+      </Modal>
     </div>
   );
 }

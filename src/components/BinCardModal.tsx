@@ -607,7 +607,8 @@ export default function BinCardModal({
                       <th className="p-3 border-r border-slate-200 text-center w-16">Unit</th>
                       <th className="p-3 border-r border-slate-200">Voucher No</th>
                       <th className="p-3 border-r border-slate-200 text-center">Plate Number</th>
-                      <th className="p-3 border-r border-slate-200 text-right text-green-700">Received</th>
+                      <th className="p-3 border-r border-slate-200 text-right text-green-700 font-sans">Received</th>
+                      <th className="p-3 border-r border-slate-200 text-right text-emerald-800 bg-emerald-50/30 font-sans font-extrabold uppercase">Approved Qty</th>
                       <th className="p-3 border-r border-slate-200 text-right text-amber-700">Issued</th>
                       <th className="p-3 border-r border-slate-200 text-right text-rose-700">Returned</th>
                       <th className="p-3 border-r border-slate-200 text-right text-indigo-750">Transferred</th>
@@ -626,6 +627,7 @@ export default function BinCardModal({
                       </td>
                       <td className="p-3 border-r border-slate-200 text-center text-slate-400">-</td>
                       <td className="p-3 border-r border-slate-200 text-right text-slate-400 font-mono">-</td>
+                      <td className="p-3 border-r border-slate-200 text-right text-slate-400 font-mono bg-[#fafaff]/30">-</td>
                       <td className="p-3 border-r border-slate-200 text-right text-slate-400 font-mono">-</td>
                       <td className="p-3 border-r border-slate-200 text-right text-slate-400 font-mono">-</td>
                       <td className="p-3 border-r border-slate-200 text-right text-slate-400 font-mono">-</td>
@@ -660,6 +662,18 @@ export default function BinCardModal({
 
                           <td className="p-3 border-r border-slate-200 text-right font-bold text-green-700 font-mono">
                             {t.receivedQty !== undefined ? t.receivedQty.toFixed(2) : '-'}
+                          </td>
+                          <td className="p-3 border-r border-slate-200 text-right font-semibold text-emerald-800 bg-emerald-50/15 font-mono">
+                            {t.approvedQty !== undefined 
+                              ? t.approvedQty.toFixed(2) 
+                              : (t.receivedQty !== undefined 
+                                  ? t.receivedQty.toFixed(2) 
+                                  : (t.issuedQty !== undefined 
+                                      ? t.issuedQty.toFixed(2) 
+                                      : '-'
+                                    )
+                                )
+                            }
                           </td>
                           <td className="p-3 border-r border-slate-200 text-right font-bold text-amber-700 font-mono">
                             {t.issuedQty !== undefined ? t.issuedQty.toFixed(2) : '-'}

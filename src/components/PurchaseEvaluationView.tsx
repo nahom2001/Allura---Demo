@@ -60,6 +60,21 @@ export default function PurchaseEvaluationView({
   const [comparisons, setComparisons] = useState<Omit<PurchaseEvaluationItem, 'id'>[]>([]);
   const [technicalReviewBy, setTechnicalReviewBy] = useState('');
   const [approvedBy, setApprovedBy] = useState('');
+  const [evaluationRemark, setEvaluationRemark] = useState('');
+  const [uploadedFile, setUploadedFile] = useState<{ name: string; type: string; dataUrl: string } | null>(null);
+
+  // File loading utility to read as data URL
+  const handleFileUpload = (file: File) => {
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setUploadedFile({
+        name: file.name,
+        type: file.type,
+        dataUrl: reader.result as string
+      });
+    };
+    reader.readAsDataURL(file);
+  };
 
   // Auto-fill form values based on selected Purchase Requisition
   const activePR = purchaseRequisitions.find(pr => pr.id === selectedPrId);
@@ -79,6 +94,8 @@ export default function PurchaseEvaluationView({
   // Handle open registration / evaluation form
   const handleOpenNewForm = () => {
     setEditingEvaluation(null);
+    setEvaluationRemark('');
+    setUploadedFile(null);
     // Find next sequential code/ID based on highest existing badge No.
     const numericCodes = evaluations.map(b => parseInt(b.code, 10)).filter(n => !isNaN(n));
     const nextCode = numericCodes.length > 0 ? Math.max(...numericCodes) + 1 : 1539;
@@ -117,6 +134,8 @@ export default function PurchaseEvaluationView({
     setSrCode(evaluation.srCode);
     setTechnicalReviewBy(evaluation.technicalReviewBy || '');
     setApprovedBy(evaluation.approvedBy || '');
+    setEvaluationRemark(evaluation.remark || '');
+    setUploadedFile(evaluation.attachment || null);
     setComparisons(evaluation.comparisons.map(c => ({
       supplierId: c.supplierId,
       price: c.price,
@@ -210,10 +229,11 @@ export default function PurchaseEvaluationView({
       requestedQty: pr.requestedQty,
       orderedQty: orderedQty,
       status: editingEvaluation ? editingEvaluation.status : dynamicStatus,
-      remark: editingEvaluation?.remark || '',
+      remark: evaluationRemark,
       technicalReviewBy: technicalReviewBy,
       approvedBy: approvedBy,
       createdAt: editingEvaluation ? editingEvaluation.createdAt : new Date().toISOString().split('T')[0],
+      attachment: uploadedFile || undefined,
       comparisons: comparisons.map((comp, idx) => ({
         id: editingEvaluation?.comparisons[idx]?.id || `bc-${Date.now()}-${idx}`,
         ...comp
@@ -395,9 +415,26 @@ export default function PurchaseEvaluationView({
                         <td className="p-3.5 max-w-xs">
                           <div className="flex flex-col">
                             <span className="font-bold text-slate-800 leading-normal">{evaluation.description}</span>
-                            <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider mt-0.5">
-                              {evaluation.orderedQty} {evaluation.unit} Requested
-                            </span>
+                            <div className="flex flex-wrap items-center gap-2 mt-1">
+                              <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">
+                                {evaluation.orderedQty} {evaluation.unit} Requested
+                              </span>
+                              {evaluation.attachment && (
+                                <a
+                                  href={evaluation.attachment.dataUrl}
+                                  download={evaluation.attachment.name}
+                                  onClick={(e) => e.stopPropagation()}
+                                  title={`Download ${evaluation.attachment.name}`}
+                                  className="inline-flex items-center gap-1 bg-blue-50 border border-blue-200 text-[#033096] text-[9.5px] font-bold px-1.5 py-0.5 rounded shadow-3xs hover:bg-[#033096] hover:text-white hover:border-[#033096] transition duration-150 animate-fade"
+                                >
+                                  <svg className="w-3 h-3 stroke-[2.5]" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M18.364 5.636l-3.536 3.536m0 0l-3.536 3.536m3.536-3.536L21 3m-12.728 12.728l-3.536 3.536m0 0l-3.536 3.536m3.536-3.536L3 21" />
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M13.12 10.88a3 3 0 114.24 4.24l-4.24 4.24a5 5 0 11-7.07-7.07l1.41-1.41a1 1 0 111.42 1.41l-1.41 1.42a3 3 5 004.24 4.24l4.24-4.24a1 1 0 000-1.41z"/>
+                                  </svg>
+                                  <span>Clip attached</span>
+                                </a>
+                              )}
+                            </div>
                             {evaluation.remark && (
                               <div className="mt-2 p-2 text-[10px] text-amber-800 bg-amber-50/60 border border-amber-100 rounded-lg font-medium leading-relaxed">
                                 <span className="font-bold uppercase tracking-wider text-[9px] text-amber-600 block mb-0.5">Revision Remarks:</span>
@@ -693,8 +730,6 @@ export default function PurchaseEvaluationView({
                         <th className="p-3 w-28 text-center">Discount %</th>
                         <th className="p-3 w-28 text-center">Status</th>
                         <th className="p-3 w-36 text-center">Winning Reason</th>
-                        <th className="p-3">Remark</th>
-                        <th className="p-3 w-14 text-center">Action</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
@@ -808,30 +843,6 @@ export default function PurchaseEvaluationView({
                                 <span className="text-slate-300">-</span>
                               )}
                             </td>
-
-                            {/* Remark text */}
-                            <td className="p-3">
-                              <input
-                                type="text"
-                                value={item.remark}
-                                onChange={(e) => handleUpdateComparisonRow(index, 'remark', e.target.value)}
-                                placeholder="Add comparison note..."
-                                className="w-full h-8 px-2.5 bg-white border border-slate-200 focus:border-blue-500 focus:outline-none rounded text-xs font-medium"
-                              />
-                            </td>
-
-                            {/* Action delete minus button */}
-                            <td className="p-3 text-center">
-                              <button
-                                type="button"
-                                onClick={() => handleDeleteComparisonRow(index)}
-                                className="w-7 h-7 bg-red-50 hover:bg-red-100 border border-red-200 text-red-500 rounded-lg flex items-center justify-center cursor-pointer transition"
-                                title="Remove supplier from comparison ledger"
-                              >
-                                <span className="font-bold text-sm">-</span>
-                              </button>
-                            </td>
-
                           </tr>
                         );
                       })}
@@ -839,21 +850,122 @@ export default function PurchaseEvaluationView({
                   </table>
                 </div>
 
-                {/* Bottom of board: "+ Add Supplier" button & summary figures */}
-                <div className="p-4 bg-white border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-4">
+                {/* Bottom of board: "+ Add Supplier" button, File upload, Winning Reason textarea, and summary figures */}
+                <div className="p-5 bg-white border-t border-slate-200 grid grid-cols-1 md:grid-cols-12 gap-5 items-stretch">
                   
-                  {/* Plus button */}
-                  <button
-                    type="button"
-                    onClick={handleAddComparisonRow}
-                    className="h-8 px-4 border border-slate-200 hover:border-blue-400 bg-white hover:bg-blue-50/20 text-blue-700 font-bold text-xs rounded-lg flex items-center gap-1.5 cursor-pointer shadow-3xs transition"
-                  >
-                    <span className="font-bold text-base">+</span>
-                    <span>Add Supplier Comparison</span>
-                  </button>
+                  {/* Left Column: Action Button & File Upload */}
+                  <div className="md:col-span-3 flex flex-col gap-4">
+                    {/* Plus button resembling the screenshot */}
+                    <button
+                      type="button"
+                      onClick={handleAddComparisonRow}
+                      className="h-10 px-4 border border-blue-200 hover:border-[#033096] bg-white hover:bg-blue-50/20 text-[#033096] font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 cursor-pointer shadow-3xs transition-all active:scale-98"
+                    >
+                      <Plus size={13} strokeWidth={2.5} className="text-[#033096]" />
+                      <span>Add Supplier Comparison</span>
+                    </button>
 
-                  {/* Calculations breakdown for selected winner or general totals */}
-                  <div className="flex flex-col text-right space-y-1.5 max-w-xs w-full text-xs font-bold text-slate-700 border-l border-slate-100 pl-4 py-1">
+                    {/* Drag-and-drop / Click File Upload container under button */}
+                    <div className="flex-1 flex flex-col">
+                      <span className="text-[10px] font-bold text-slate-400/90 uppercase tracking-wider mb-1 flex items-center gap-1 select-none">
+                        File Upload — image/pdf
+                        <HelpCircle size={10} className="text-slate-300" title="Upload verification document, invoice, quotation list, or supplier proof" />
+                      </span>
+                      <div
+                        onDragOver={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                        }}
+                        onDrop={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          const files = e.dataTransfer.files;
+                          if (files && files[0]) {
+                            handleFileUpload(files[0]);
+                          }
+                        }}
+                        onClick={() => document.getElementById('evaluation-file-picker')?.click()}
+                        className="flex-1 min-h-[120px] border-2 border-dashed border-blue-250 hover:border-blue-600 bg-slate-50/50 hover:bg-white rounded-xl p-4 flex flex-col items-center justify-center text-center cursor-pointer transition-all duration-150 group shadow-3xs select-none"
+                      >
+                        <input
+                          type="file"
+                          id="evaluation-file-picker"
+                          className="hidden"
+                          accept="image/*,application/pdf"
+                          onChange={(e) => {
+                            const files = e.target.files;
+                            if (files && files[0]) {
+                              handleFileUpload(files[0]);
+                            }
+                          }}
+                        />
+                        {uploadedFile ? (
+                          <div className="flex flex-col items-center gap-2.5 relative w-full px-2 py-1">
+                            {uploadedFile.type.startsWith('image/') ? (
+                              <img
+                                src={uploadedFile.dataUrl}
+                                alt="Quotation clip"
+                                className="w-12 h-12 object-cover rounded-lg border-2 border-slate-200 shadow-2xs hover:scale-105 transition"
+                                referrerPolicy="no-referrer"
+                              />
+                            ) : (
+                              <div className="p-2.5 bg-blue-50 text-[#033096] rounded-xl border border-blue-100">
+                                <FileText size={24} className="text-[#033096]" />
+                              </div>
+                            )}
+                            <div className="text-center w-full">
+                              <span className="text-[11px] font-bold text-slate-750 block truncate max-w-[160px] mx-auto leading-tight">
+                                {uploadedFile.name}
+                              </span>
+                              <span className="text-[9px] text-emerald-750 font-bold bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full inline-block mt-1 uppercase tracking-wider">
+                                File Loaded
+                              </span>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setUploadedFile(null);
+                              }}
+                              className="absolute -top-1 -right-1 p-1 bg-rose-50 text-rose-500 hover:bg-rose-100 hover:text-rose-700 rounded-full border border-rose-200 shadow-3xs cursor-pointer transition"
+                            >
+                              <X size={11} strokeWidth={3} />
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="flex flex-col items-center gap-2 group-hover:scale-98 transition">
+                            <div className="p-2.5 bg-blue-50/50 border border-blue-105 rounded-full text-slate-450 group-hover:text-[#033096] group-hover:bg-blue-50 transition-colors">
+                              <svg className="w-5 h-5 stroke-[2.5]" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M12 16.5V9.75m0 0l3 3m-3-3l-3 3M6.75 19.5a4.5 4.5 0 01-1.41-8.775 5.25 5.25 0 0110.233-2.33 3 3 0 013.758 3.848A3.752 3.752 0 0118 19.5H6.75z" />
+                              </svg>
+                            </div>
+                            <div className="flex flex-col text-center">
+                              <span className="font-bold text-slate-600 group-hover:text-[#033096] transition-colors text-[10.5px]">Click or drag files here</span>
+                              <span className="text-slate-400 font-semibold text-[9px] uppercase mt-0.5 tracking-wider">PNG, JPG, PDF up to 10MB</span>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Center Column: Winning Reason — Remark Text Area with expanded larger height */}
+                  <div className="md:col-span-5 flex flex-col">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1 flex items-center gap-1 select-none">
+                      Winning Reason — Remark (Grounds of Decision)
+                      <span className="text-red-500 font-bold">*</span>
+                    </span>
+                    <textarea
+                      value={evaluationRemark}
+                      onChange={(e) => setEvaluationRemark(e.target.value)}
+                      placeholder="Specify the detailed grounds of winner selection, experience edge, price quote advantages, or payment/installment terms..."
+                      required
+                      className="w-full h-full min-h-[155px] p-4.5 border border-amber-250/70 focus:border-[#033096] rounded-xl text-[12px] font-semibold focus:outline-none focus:ring-1 focus:ring-[#033096]/15 bg-[#fffdf0]/65 focus:bg-white transition hover:border-amber-350 shadow-3xs resize-none leading-relaxed"
+                    />
+                  </div>
+
+                  {/* Right Column: Calculations Breakdown Panel */}
+                  <div className="md:col-span-4 bg-slate-50/50 border border-slate-150/80 rounded-xl p-4 flex flex-col justify-between space-y-3.5 shadow-3xs">
                     {/* Retrieve first winner details if any */}
                     {(() => {
                       const winnerItem = comparisons.find(c => c.status === 'Winner');
@@ -869,30 +981,33 @@ export default function PurchaseEvaluationView({
                       const supObj = suppliers.find(s => s.id === usedItem.supplierId);
 
                       return (
-                        <>
-                          <div className="flex justify-between items-center text-[10px] text-slate-400 font-bold tracking-widest uppercase mb-1">
-                            <span>Evaluated Model ({winnerItem ? 'Winner' : 'Contender 1'}):</span>
-                            <span className="text-[#033096]">{supObj ? supObj.name : 'Unknown'}</span>
-                          </div>
-                          <div className="flex justify-between items-center font-normal text-slate-500">
-                            <span>Amount:</span>
-                            <span className="font-mono font-bold text-slate-700">{calculatedAmount.toLocaleString()}</span>
-                          </div>
-                          {usedItem.discount > 0 && (
-                            <div className="flex justify-between items-center font-normal text-slate-500">
-                              <span>Discount (-{usedItem.discount}%):</span>
-                              <span className="font-mono font-semibold text-emerald-600">-{discountAmt.toLocaleString()}</span>
+                        <div className="flex flex-col h-full justify-between">
+                          <div className="space-y-1.5 text-xs font-bold text-slate-700">
+                            <div className="flex justify-between items-center text-[10px] text-slate-450 font-bold tracking-wider uppercase mb-1.5 border-b border-slate-150 pb-1">
+                              <span>Evaluated Model ({winnerItem ? 'Winner' : 'Contender 1'}):</span>
+                              <span className="text-[#033096] font-extrabold">{supObj ? supObj.name : 'Unknown'}</span>
                             </div>
-                          )}
-                          <div className="flex justify-between items-center font-normal text-slate-500">
-                            <span>TAX ({usedItem.taxRate}%):</span>
-                            <span className="font-mono font-bold text-slate-700">{taxAmt.toLocaleString()}</span>
+                            <div className="flex justify-between items-center font-normal text-slate-500">
+                              <span>Amount:</span>
+                              <span className="font-mono font-bold text-slate-700">{calculatedAmount.toLocaleString()}</span>
+                            </div>
+                            {usedItem.discount > 0 && (
+                              <div className="flex justify-between items-center font-normal text-slate-500">
+                                <span>Discount (-{usedItem.discount}%):</span>
+                                <span className="font-mono font-semibold text-emerald-600">-{discountAmt.toLocaleString()}</span>
+                              </div>
+                            )}
+                            <div className="flex justify-between items-center font-normal text-slate-500">
+                              <span>TAX ({usedItem.taxRate}%):</span>
+                              <span className="font-mono font-bold text-slate-700">{taxAmt.toLocaleString()}</span>
+                            </div>
                           </div>
-                          <div className="flex justify-between items-center border-t border-slate-100 pt-1.5 font-bold text-slate-900">
-                            <span>Amount with TAX:</span>
-                            <span className="font-mono font-bold text-[#033096] text-sm">{totalWithTax.toLocaleString()}</span>
+                          
+                          <div className="flex justify-between items-center border-t border-slate-200/80 pt-2 font-extrabold text-slate-900 mt-2">
+                            <span className="text-[10px] uppercase tracking-wider text-slate-500 font-bold">Amount with TAX:</span>
+                            <span className="font-mono font-extrabold text-[#033096] text-sm">{totalWithTax.toLocaleString()}</span>
                           </div>
-                        </>
+                        </div>
                       );
                     })()}
                   </div>

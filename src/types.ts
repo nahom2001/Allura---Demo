@@ -83,6 +83,11 @@ export interface PurchaseEvaluation {
   technicalReviewBy?: string;
   approvedBy?: string;
   createdAt: string;
+  attachment?: {
+    name: string;
+    type: string;
+    dataUrl: string;
+  };
 }
 
 export interface BinCardTransaction {
@@ -94,6 +99,7 @@ export interface BinCardTransaction {
   issuedQty?: number;
   returnedQty?: number;
   transferredQty?: number;
+  approvedQty?: number;
   plateNumber?: string;
   balance: number;
   unitPrice: number;
@@ -105,6 +111,9 @@ export interface BinCardTransaction {
   qaStatus?: 'Approved' | 'Rejected' | 'Revision Required';
   qaRemark?: string;
   qaApprovedDate?: string;
+  supplierName?: string;
+  padReferenceNumber?: string;
+  receivedBy?: string;
 }
 
 export interface PurchaseOrderItem {
@@ -162,6 +171,7 @@ export interface InterStoreTransferItem {
   description: string;
   unit: string;
   quantity: number;
+  approvedQty?: number;
   unitPrice: number;
   remark?: string;
 }

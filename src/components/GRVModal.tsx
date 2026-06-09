@@ -18,6 +18,7 @@ interface GRVLineItem {
   materialId: string;
   requestedQty: number;
   receivedQty: number;
+  approvedQty?: number;
   receiveType: string;
   damagedQty: number;
 }
@@ -129,6 +130,7 @@ export default function GRVModal({
         materialId: availableMaterials[0].id,
         requestedQty: 100,
         receivedQty: 100,
+        approvedQty: 100,
         receiveType: 'Full Complete Order',
         damagedQty: 0
       }
@@ -142,7 +144,11 @@ export default function GRVModal({
   const handleUpdateLineItem = (id: string, field: keyof GRVLineItem, value: string | number) => {
     setLineItems(prev => prev.map(item => {
       if (item.id === id) {
-        return { ...item, [field]: value };
+        const updated = { ...item, [field]: value };
+        if (field === 'receivedQty') {
+          updated.approvedQty = Number(value);
+        }
+        return updated;
       }
       return item;
     }));
@@ -168,6 +174,7 @@ export default function GRVModal({
           date: gcDate,
           grnSivNo: isVoid ? 'VOID-GRN' : padRefNo || `GRN-${Math.floor(1000 + Math.random() * 9000)}`,
           receivedQty: isVoid ? 0 : Number(item.receivedQty),
+          approvedQty: isVoid ? 0 : Number(item.approvedQty ?? item.receivedQty),
           plateNumber: plateNumber || undefined,
           unitPrice: mat.unitPrice,
           remark: `GRV Registered. Type: ${type}, Supplier Invoice: ${supplierInvoice || 'N/A'}${item.damagedQty > 0 ? `, Damaged Qty: ${item.damagedQty}` : ''}`,
@@ -431,6 +438,7 @@ export default function GRVModal({
                         <th className="p-3 w-20">Unit</th>
                         <th className="p-3 w-28">Requested Qty</th>
                         <th className="p-3 w-28">Received Qty</th>
+                        <th className="p-3 w-28 text-emerald-800 bg-emerald-50/45 font-sans font-bold">Approved Qty</th>
                         <th className="p-3">Receive Type</th>
                         <th className="p-3 w-28">Damaged Qty</th>
                         <th className="p-3 w-12 text-center">Delete</th>
@@ -504,6 +512,18 @@ export default function GRVModal({
                                   value={item.receivedQty}
                                   onChange={(e) => handleUpdateLineItem(item.id, 'receivedQty', Number(e.target.value))}
                                   className="w-full h-8 px-2 border border-slate-200 rounded text-xs text-right font-bold focus:border-blue-650"
+                                />
+                              </td>
+
+                              {/* Approved Qty */}
+                              <td className="p-2 bg-emerald-50/15">
+                                <input
+                                  type="number"
+                                  min={0.1}
+                                  step="any"
+                                  value={item.approvedQty ?? item.receivedQty}
+                                  onChange={(e) => handleUpdateLineItem(item.id, 'approvedQty', Number(e.target.value))}
+                                  className="w-full h-8 px-2 border border-emerald-300 bg-emerald-50/10 rounded text-xs text-right font-bold text-emerald-800 focus:border-emerald-600 outline-none"
                                 />
                               </td>
 

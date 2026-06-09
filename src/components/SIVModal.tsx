@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { X, Plus, Trash2, AlertTriangle } from 'lucide-react';
-import { Store, Material, SystemUser, BinCardTransaction } from '../types';
+import { Store, Material, SystemUser, BinCardTransaction, PurchaseRequisition } from '../types';
 
 interface SIVModalProps {
   isOpen: boolean;
@@ -8,6 +8,7 @@ interface SIVModalProps {
   stores: Store[];
   materials: Material[];
   users: SystemUser[];
+  purchaseRequisitions?: PurchaseRequisition[];
   onSave: (transactions: { materialId: string; tx: Omit<BinCardTransaction, 'id' | 'materialId'> }[]) => void;
 }
 
@@ -15,6 +16,7 @@ interface SivFormItem {
   id: string;
   materialId: string;
   quantity: number;
+  approvedQty?: number;
   unitPrice: number;
   remark: string;
 }
@@ -25,13 +27,36 @@ export default function SIVModal({
   stores,
   materials,
   users,
+  purchaseRequisitions = [],
   onSave
 }: SIVModalProps) {
   const [sivFormDate, setSivFormDate] = useState<string>('');
   const [sivFormNo, setSivFormNo] = useState<string>('');
   const [warehouseId, setWarehouseId] = useState<string>('');
   const [sivFormProject, setSivFormProject] = useState<string>('Phison Realstate SC site');
-  const [sivFormRequisitionNo, setSivFormRequisitionNo] = useState<string>('MR-1010');
+  const [sivFormRequisitionNo, setSivFormRequisitionNo] = useState<string>('MR-9473');
+  
+  // Compiled MR options from default values and dynamic purchaseRequisitions
+  const mrOptions = useMemo(() => {
+    const list = [
+      { code: 'MR-9473', description: 'Requisition - Standard Site Material' },
+      { code: 'MR-4903', description: 'Requisition - Reinforcement Steel 12mm' },
+      { code: 'MR-1084', description: 'Requisition - PVC Pipe Conduit 50mm' },
+    ];
+    
+    if (purchaseRequisitions && purchaseRequisitions.length > 0) {
+      purchaseRequisitions.forEach(pr => {
+        const mrCode = pr.srCode ? pr.srCode.replace('SR-', 'MR-') : pr.code.replace('PR-', 'MR-');
+        if (!list.some(item => item.code === mrCode)) {
+          list.push({
+            code: mrCode,
+            description: `Requisition - ${pr.description}`
+          });
+        }
+      });
+    }
+    return list;
+  }, [purchaseRequisitions]);
   
   // Sign-offs selectors
   const [sivFormRequestedBy, setSivFormRequestedBy] = useState<string>('');
@@ -48,7 +73,7 @@ export default function SIVModal({
       setSivFormNo('');
       setWarehouseId(stores[0]?.id || '');
       setSivFormProject('Phison Realstate SC site');
-      setSivFormRequisitionNo(`MR-${Math.floor(1000 + Math.random() * 9000)}`);
+      setSivFormRequisitionNo('MR-9473');
       
       const keepers = users.filter(u => u.role === 'Store Keeper');
       const managers = users.filter(u => u.role === 'Warehouse Manager' || u.role === 'Stock Controller');
@@ -73,6 +98,7 @@ export default function SIVModal({
             id: `siv-row-${Date.now()}`,
             materialId: warehouseMaterials[0].id,
             quantity: 5,
+            approvedQty: 5,
             unitPrice: warehouseMaterials[0].unitPrice || 450,
             remark: 'Ongoing concrete slab formulation installation'
           }
@@ -98,6 +124,7 @@ export default function SIVModal({
       id: `siv-row-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
       materialId: availableMaterials[0].id,
       quantity: 1,
+      approvedQty: 1,
       unitPrice: availableMaterials[0].unitPrice || 450,
       remark: 'Issued for site operations'
     };
@@ -113,6 +140,9 @@ export default function SIVModal({
     setSivFormItems(prev => prev.map(item => {
       if (item.id === id) {
         const updated = { ...item, [field]: value };
+        if (field === 'quantity') {
+          updated.approvedQty = Number(value);
+        }
         if (field === 'materialId') {
           const mat = materials.find(m => m.id === value);
           if (mat) {
@@ -165,6 +195,7 @@ export default function SIVModal({
           date: sivFormDate,
           grnSivNo: generatedNo,
           issuedQty: Number(item.quantity),
+          approvedQty: Number(item.approvedQty ?? item.quantity),
           balance: (matDetail?.quantity || 10) - item.quantity, 
           unitPrice: item.unitPrice,
           remark: `Store Issue Voucher | To House/Block: ${sivFormProject}. Requisition: ${sivFormRequisitionNo} | ${item.remark || 'Ongoing construction deployment'}`,
@@ -247,7 +278,7 @@ export default function SIVModal({
                     required
                     value={warehouseId}
                     onChange={(e) => setWarehouseId(e.target.value)}
-                    className="h-8 px-2 bg-white border border-[#d9d9d9] rounded hover:border-[#033096] focus:border-[#033096] outline-none text-xs shadow-3xs cursor-pointer"
+                    className="h-8 px-2 bg-white border border-[#d9d9d9] rounded hover:border-[#033096] focus:border-[#033096] outline-none text-xs shadow-3xs cursor-pointer font-semibold"
                   >
                     <option value="">Select dispatch store</option>
                     {stores.map(st => (
@@ -272,14 +303,19 @@ export default function SIVModal({
 
                 <div className="flex flex-col gap-1.5">
                   <span className="text-[#595959] flex items-center gap-1 font-semibold">Store Requisition No <span className="text-red-500">*</span></span>
-                  <input
-                    type="text"
+                  <select
                     required
-                    placeholder="e.g. MR-0010"
                     value={sivFormRequisitionNo}
                     onChange={(e) => setSivFormRequisitionNo(e.target.value)}
-                    className="h-8 px-3 border border-[#d9d9d9] rounded hover:border-[#033096] focus:border-[#033096] outline-none shadow-3xs"
-                  />
+                    className="h-8 px-2 bg-white border border-[#d9d9d9] rounded hover:border-[#033096] focus:border-[#033096] outline-none text-xs shadow-3xs cursor-pointer font-semibold"
+                  >
+                    <option value="">Select requisition</option>
+                    {mrOptions.map(mr => (
+                      <option key={mr.code} value={mr.code}>
+                        {mr.code} — {mr.description}
+                      </option>
+                    ))}
+                  </select>
                 </div>
               </div>
             </div>
@@ -300,6 +336,7 @@ export default function SIVModal({
                         <th className="p-2.5 w-16 text-center">Unit</th>
                         <th className="p-2.5 w-24 text-center">In Stock</th>
                         <th className="p-2.5 w-24 text-right">ብዛት/Qty</th>
+                        <th className="p-2.5 w-24 text-right text-emerald-805 bg-emerald-50/45 font-sans">Approved Qty</th>
                         <th className="p-2.5 w-24 text-right">Unit Price</th>
                         <th className="p-2.5 w-28 text-right">Total Price</th>
                         <th className="p-2.5 min-w-[120px]">Remark</th>
@@ -357,6 +394,18 @@ export default function SIVModal({
                                   value={item.quantity}
                                   onChange={(e) => handleUpdateSivFormRow(item.id, 'quantity', Number(e.target.value))}
                                   className="w-20 h-8 px-2 border border-[#d9d9d9] bg-white text-right focus:border-[#033096] rounded outline-none font-bold"
+                                />
+                              </td>
+
+                              {/* Approved Quantity input */}
+                              <td className="p-1.5 text-right font-semibold bg-emerald-50/15">
+                                <input
+                                  type="number"
+                                  min={0.1}
+                                  step="any"
+                                  value={item.approvedQty ?? item.quantity}
+                                  onChange={(e) => handleUpdateSivFormRow(item.id, 'approvedQty', Number(e.target.value))}
+                                  className="w-20 h-8 px-2 border border-emerald-300 bg-emerald-50/10 text-right focus:border-emerald-600 rounded outline-none font-bold text-emerald-800"
                                 />
                               </td>
 

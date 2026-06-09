@@ -79,6 +79,7 @@ export default function VoucherValidationView({
 
   // Action Inputs for Reconciliation/Audit panel
   const [remarksText, setRemarksText] = useState('');
+  const [approvedQtyVal, setApprovedQtyVal] = useState<number>(0);
   const [successMessage, setSuccessMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
 
@@ -171,7 +172,6 @@ export default function VoucherValidationView({
           }
         }
       }
-      setRemarksText('');
     } else {
       setSelectedPoId(null);
     }
@@ -188,6 +188,16 @@ export default function VoucherValidationView({
         item.code === grvMaterial.code
       ) || activePo.items[0]
     : null;
+
+  useEffect(() => {
+    if (activeGrv) {
+      setRemarksText(activeGrv.qaRemark || '');
+      setApprovedQtyVal(activeGrv.approvedQty !== undefined ? activeGrv.approvedQty : (activeGrv.receivedQty || 0));
+    } else {
+      setRemarksText('');
+      setApprovedQtyVal(0);
+    }
+  }, [selectedGrvId, activeGrv]);
 
   const grvQty = activeGrv?.receivedQty || 0;
   const grvPrice = activeGrv?.unitPrice || 0;
@@ -215,12 +225,18 @@ export default function VoucherValidationView({
       return;
     }
 
+    if (approvedQtyVal === undefined || isNaN(approvedQtyVal) || approvedQtyVal <= 0) {
+      triggerError('Mandatory constraint check failed! Approved quantity must be a positive number.');
+      return;
+    }
+
     const updated: BinCardTransaction = {
       ...activeGrv,
       qaApprovedById: activeUserId,
       qaStatus: 'Approved',
       qaApprovedDate: new Date().toISOString().split('T')[0],
-      qaRemark: remarksText || 'Matched with Purchase Order & approved for posting.'
+      qaRemark: remarksText || 'Matched with Purchase Order & approved for posting.',
+      approvedQty: Number(approvedQtyVal)
     };
 
     onUpdateTransaction(updated);
@@ -388,7 +404,12 @@ export default function VoucherValidationView({
               {mat ? mat.description : 'Uncoded Item Descriptor'}
             </div>
             <div className="flex justify-between items-center gap-1 text-[10px] pt-0.5">
-              <span className="text-slate-400 italic">Qty: <b className="text-slate-650 font-mono font-bold">{record.receivedQty || 0}</b></span>
+              <span className="text-slate-400 italic">
+                Rec: <b className="text-slate-650 font-mono font-bold mr-1.5">{record.receivedQty || 0}</b>
+                {record.approvedQty !== undefined && (
+                  <span className="text-emerald-700">Appr: <b className="font-mono font-bold">{record.approvedQty}</b></span>
+                )}
+              </span>
               {statusBadge}
             </div>
           </div>
@@ -885,6 +906,29 @@ export default function VoucherValidationView({
                       </div>
                     </div>
                   )}
+
+                  {/* Approved quantity editable field for approver */}
+                  <div className="p-3.5 bg-emerald-55/15 border border-emerald-150 rounded-lg space-y-1.5 min-w-0">
+                    <div className="flex justify-between items-center select-none">
+                      <span className="text-xs font-bold text-emerald-800 flex items-center gap-1 uppercase tracking-wider">
+                        <Check size={13} strokeWidth={2.5} /> Set Approved Quantity (Mandatory)
+                      </span>
+                      <span className="text-[10.5px] text-emerald-650 font-medium">Physical Rec: <b>{grvQty} {grvMaterial?.unit}</b></span>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <input
+                        type="number"
+                        min={0.1}
+                        step="any"
+                        value={approvedQtyVal}
+                        onChange={(e) => setApprovedQtyVal(Number(e.target.value))}
+                        className="w-36 h-9 px-3 border border-emerald-305 rounded bg-white text-sm font-extrabold text-emerald-800 focus:ring-2 focus:ring-emerald-250 outline-none font-mono text-center"
+                      />
+                      <span className="text-xs text-emerald-700 font-medium font-sans">
+                        Verify and declare the exact audited quantity standard to post on bin ledger cards.
+                      </span>
+                    </div>
+                  </div>
 
                   {/* Verification comments input block */}
                   <div className="space-y-2">
