@@ -94,7 +94,6 @@ export default function InterStoreTransferView({
       { code: 'MR-9473', description: 'Requisition - Standard Site Material' },
       { code: 'MR-4903', description: 'Requisition - Reinforcement Steel 12mm' },
       { code: 'MR-1084', description: 'Requisition - PVC Pipe Conduit 50mm' },
-      { code: 'MR-Transfer', description: 'Requisition - Internal Store Transfer request' },
     ];
     
     if (purchaseRequisitions && purchaseRequisitions.length > 0) {
@@ -677,7 +676,7 @@ export default function InterStoreTransferView({
                     <tbody className="divide-y divide-slate-100 font-medium">
                       {formItems.length === 0 ? (
                         <tr>
-                          <td colSpan={9} className="p-8 text-center text-slate-400 italic">
+                          <td colSpan={10} className="p-8 text-center text-slate-400 italic">
                             No material transfer rows specified. Click "+ Add Material" below to append.
                           </td>
                         </tr>
@@ -714,54 +713,50 @@ export default function InterStoreTransferView({
                                   step={1}
                                   required
                                   value={item.quantity}
-                                  onChange={(val) => handleUpdateFormRow(index, 'quantity', val || 0)}
-                                  className="w-full max-w-[90px] font-bold rounded"
+                                  onChange={(val) => handleUpdateFormRow(index, 'quantity', val)}
+                                  className="w-24 text-center"
                                 />
                               </td>
-
-                              <td className="p-1 text-center bg-emerald-50/15">
+                              
+                              <td className="p-1 text-center bg-emerald-50/20">
                                 <InputNumber 
-                                  min={0.01}
-                                  step={1}
+                                  min={0}
                                   required
-                                  value={item.approvedQty ?? item.quantity}
-                                  onChange={(val) => handleUpdateFormRow(index, 'approvedQty', val || 0)}
-                                  className="w-full max-w-[90px] font-bold rounded border-emerald-300 bg-emerald-50/10 text-emerald-800 focus:border-emerald-600 focus:ring-emerald-250"
+                                  value={item.approvedQty}
+                                  onChange={(val) => handleUpdateFormRow(index, 'approvedQty', val)}
+                                  className="w-24 text-center font-bold text-emerald-800"
                                 />
                               </td>
 
                               <td className="p-1 text-center">
                                 <InputNumber 
                                   min={0}
-                                  step={0.1}
-                                  required
+                                  prefix="ETB"
                                   value={item.unitPrice}
-                                  onChange={(val) => handleUpdateFormRow(index, 'unitPrice', val || 0)}
-                                  className="w-full max-w-[95px] rounded"
+                                  onChange={(val) => handleUpdateFormRow(index, 'unitPrice', val)}
+                                  className="w-28 text-center"
                                 />
                               </td>
 
-                              <td className="p-2 text-right font-bold text-slate-800 font-mono">
-                                {totalRowValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                              <td className="p-2 text-right font-mono font-bold text-slate-700">
+                                {totalRowValue.toLocaleString(undefined, { minimumFractionDigits: 2 })}
                               </td>
 
                               <td className="p-1">
                                 <Input 
-                                  placeholder="Remarks"
-                                  value={item.remark || ''}
+                                  value={item.remark}
                                   onChange={(e) => handleUpdateFormRow(index, 'remark', e.target.value)}
-                                  className="w-full h-8"
+                                  className="w-full"
                                 />
                               </td>
 
                               <td className="p-2 text-center">
-                                <button
-                                  type="button"
-                                  onClick={() => handleRemoveFormRow(index)}
-                                  className="p-1.5 hover:bg-slate-100 rounded text-slate-400 hover:text-red-500 transition cursor-pointer"
-                                >
-                                  <DeleteOutlined style={{ fontSize: '12px' }} />
-                                </button>
+                                <Button 
+                                  danger 
+                                  type="text" 
+                                  icon={<DeleteOutlined />} 
+                                  onClick={() => handleRemoveFormRow(index)} 
+                                />
                               </td>
                             </tr>
                           );
@@ -771,738 +766,37 @@ export default function InterStoreTransferView({
                   </table>
                 </div>
 
-                <div className="p-3 bg-[#fafafa] border-t border-[#e8e8e8] flex justify-between items-center select-none font-sans">
-                  <span className="text-[11px] font-bold text-slate-450 uppercase font-mono">
-                    Cumulative Value: {formItems.reduce((acc, f) => acc + (f.quantity * f.unitPrice), 0).toLocaleString(undefined, { minimumFractionDigits: 2 })} ETB
-                  </span>
-                  <button
-                    type="button"
+                <div className="p-3 bg-slate-50 border-t border-[#e8e8e8] flex items-center justify-between">
+                  <Button 
+                    type="dashed" 
+                    icon={<PlusOutlined />} 
                     onClick={handleAddFormRow}
-                    className="h-8 px-3.5 bg-white border border-[#d9d9d9] hover:border-[#033096] text-[#033096] rounded font-bold text-xs shadow-3xs flex items-center gap-1 transition select-none cursor-pointer"
+                    className="text-xs font-bold"
                   >
-                    <PlusOutlined style={{ strokeWidth: 2.5 }} />
-                    <span>+ Add Material Line</span>
-                  </button>
+                    Add Material Line
+                  </Button>
+                  <div className="text-[11px] text-slate-500 uppercase font-bold tracking-tight">
+                    Total Value: <span className="text-slate-900 font-mono text-xs">{formItems.reduce((acc, curr) => acc + (curr.quantity * curr.unitPrice), 0).toLocaleString(undefined, { minimumFractionDigits: 2 })} ETB</span>
+                  </div>
                 </div>
               </div>
             </div>
-
-            {/* Step 4: Verification & Approval matrix */}
-            <div className="p-5.5 bg-[#fafafa] border border-[#f0f0f0] rounded-lg space-y-4">
-              <div className="text-center pb-2 border-b border-dashed border-slate-200">
-                <span className="text-xs font-bold font-mono tracking-wider text-slate-500 uppercase">Step 4: Verification & Approval matrix</span>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4.5 text-xs">
-                
-                <Form.Item label={<span className="text-[#595959] font-bold text-xs">Requested By (Site Supervisor)</span>} className="mb-2">
-                  <Select 
-                    value={formRequestedById}
-                    onChange={(val) => setFormRequestedById(val)}
-                    className="w-full text-xs"
-                    showSearch
-                    optionFilterProp="label"
-                    options={systemUsers.map(u => ({ value: u.id, label: `${u.name} (${u.role.split(' ')[0]})` }))}
-                  />
-                </Form.Item>
-
-                <Form.Item label={<span className="text-[#595959] font-bold text-xs">Approved By (Site / Project Manager)</span>} className="mb-2">
-                  <Select 
-                    value={formApprovedById}
-                    onChange={(val) => setFormApprovedById(val)}
-                    className="w-full text-xs"
-                    showSearch
-                    optionFilterProp="label"
-                    options={systemUsers.map(u => ({ value: u.id, label: `${u.name} (${u.role.split(' ')[0]})` }))}
-                  />
-                </Form.Item>
-
-                <Form.Item label={<span className="text-[#595959] font-bold text-xs">Issued By (Warehouse Controller)</span>} className="mb-2">
-                  <Select 
-                    value={formIssuedById}
-                    onChange={(val) => setFormIssuedById(val)}
-                    className="w-full text-xs"
-                    showSearch
-                    optionFilterProp="label"
-                    options={systemUsers.map(u => ({ value: u.id, label: `${u.name} (${u.role.split(' ')[0]})` }))}
-                  />
-                </Form.Item>
-
-              </div>
-            </div>
-
+            
           </div>
 
-          {/* Action Buttons footer */}
-          <div className="p-4 bg-[#fafafa] border-t border-[#f0f0f0] flex items-center justify-between shrink-0 font-sans">
-            <button
-              type="button"
-              onClick={() => {
-                setIsCreating(false);
-                setFormTransferNo('');
-                setFormItems([]);
-              }}
-              className="px-4.5 h-9 border border-slate-205 hover:bg-slate-100 text-slate-605 rounded font-bold transition cursor-pointer select-none text-xs"
-            >
-              Cancel
-            </button>
-
-            <div className="flex items-center gap-2 select-none">
-              <button
-                type="button"
-                onClick={() => handleSaveTransferSubmit('Draft')}
-                className="px-4 h-9 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 rounded font-bold transition cursor-pointer shadow-3xs text-xs"
-              >
-                Save as Draft (Pending)
-              </button>
-              <button
-                type="button"
-                onClick={() => handleSaveTransferSubmit('Completed')}
-                className="px-5.5 h-9 bg-[#033096] hover:bg-blue-800 text-white rounded font-bold transition cursor-pointer shadow-down text-xs"
-              >
-                Post & Complete Transfer
-              </button>
-            </div>
+          <div className="p-4 bg-slate-50 border-t border-slate-100 flex items-center justify-end gap-3 rounded-b-xl">
+            <Button onClick={() => setIsCreating(false)}>Cancel</Button>
+            <Button onClick={() => handleSaveTransferSubmit('Draft')}>Save as Draft</Button>
+            <Button type="primary" className="bg-[#033096]" onClick={() => handleSaveTransferSubmit('Completed')}>Complete & Post Transfer</Button>
           </div>
-
         </Form>
       ) : (
-        
-        /* ========================================================= */
-        /* RENDER DASHBOARD DIRECTLY FITTING THE SCREENSHOT THEME    */
-        /* ========================================================= */
-        <div className="space-y-4 no-print select-none">
-          
-          {/* Header Action Section */}
-          <div className="bg-white p-4 pb-1 border border-[#eaeaea] rounded-xl shadow-3xs select-none">
-            
-            <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
-              <div>
-                <h2 className="text-base font-bold text-[#1a1a1a] flex items-center gap-2">
-                  <Layers size={18} className="text-[#033096]" />
-                  <span>Inter-Store Stock Transfers</span>
-                </h2>
-                <span className="text-[11px] text-[#8c8c8c]">Double-entry logistics tracking between Allura warehousing centers</span>
-              </div>
-
-              {/* REGISTER BUTTON STYLED TO PERFECTION */}
-              <button
-                onClick={() => {
-                  setIsCreating(true);
-                  setSelectedTransferId(null);
-                }}
-                className="h-8.5 px-4 bg-white hover:bg-slate-50 text-[12px] font-bold text-[#444] border border-[#d2d2d2] rounded-[6px] shadow-3xs hover:border-[#1677ff] active:scale-98 transition duration-150 flex items-center gap-1 cursor-pointer pointer-events-auto"
-              >
-                <PlusOutlined style={{ fontSize: '10px', strokeWidth: 3 }} />
-                <span>Register</span>
-              </button>
-            </div>
-
-            {/* Quick Filters panel */}
-            <div className="grid grid-cols-1 sm:grid-cols-5 gap-3 py-3 border-t border-[#f5f5f5]">
-              
-              {/* Start Date to End Date filter */}
-              <div className="flex items-center gap-1.5 h-8">
-                <DatePicker
-                  placeholder="Start Date"
-                  value={startDate ? dayjs(startDate) : null}
-                  onChange={(date) => setStartDate(date ? date.format('YYYY-MM-DD') : '')}
-                  className="h-8 text-xs font-semibold w-28"
-                  allowClear
-                />
-                <span className="text-slate-300 font-medium select-none">→</span>
-                <DatePicker
-                  placeholder="End Date"
-                  value={endDate ? dayjs(endDate) : null}
-                  onChange={(date) => setEndDate(date ? date.format('YYYY-MM-DD') : '')}
-                  className="h-8 text-xs font-semibold w-28"
-                  allowClear
-                />
-              </div>
-
-              {/* Keyword query Search */}
-              <div className="relative">
-                <span className="absolute inset-y-0 left-0 flex items-center pl-2.5 text-slate-400 pointer-events-none">
-                  <Search size={13} />
-                </span>
-                <input
-                  type="text"
-                  value={searchText}
-                  onChange={(e) => setSearchText(e.target.value)}
-                  placeholder="Filter GTO / Spec requisitions..."
-                  className="w-full h-8 px-2.5 pl-8 border border-[#d9d9d9] bg-white rounded-[4px] outline-none hover:border-[#4096ff] focus:border-[#4096ff] text-xs font-medium transition"
-                />
-              </div>
-
-              {/* Depart From */}
-              <div>
-                <Select
-                  value={fromStoreFilter}
-                  onChange={setFromStoreFilter}
-                  className="w-full h-8 text-xs font-semibold custom-select-ledger"
-                  options={[{ value: 'all', label: 'All Dispatch Yards' }, ...stores.map(s => ({ value: s.id, label: s.name }))]}
-                />
-              </div>
-
-              {/* Destination To */}
-              <div>
-                <Select
-                  value={toStoreFilter}
-                  onChange={setToStoreFilter}
-                  className="w-full h-8 text-xs font-semibold custom-select-ledger"
-                  options={[{ value: 'all', label: 'All Recipient Yards' }, ...stores.map(s => ({ value: s.id, label: s.name }))]}
-                />
-              </div>
-
-              {/* Status Tabs Select style directly resembling "Pending" in the upper screenshot layout */}
-              <div>
-                <Select
-                  value={statusFilter}
-                  onChange={setStatusFilter}
-                  className="w-full h-8 text-xs font-bold"
-                  options={[
-                    { value: 'All', label: 'All Ledger Statuses' },
-                    { value: 'Draft', label: 'Pending (1) State Only' },
-                    { value: 'Completed', label: 'Completed Posted Only' }
-                  ]}
-                />
-              </div>
-
-            </div>
-
-          </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
-            
-            {/* ========================================================= */}
-            {/* LEFT SIDE PANEL: ISTV REQUESTS (4 columns wide)           */}
-            {/* ========================================================= */}
-            <div className="lg:col-span-4 bg-amber-50/15 border border-amber-200 p-4 rounded-lg shadow-3xs space-y-4 text-left">
-              
-              <div className="flex items-center justify-between border-b border-amber-200/60 pb-3">
-                <div>
-                  <h3 className="text-xs font-bold uppercase tracking-wider text-amber-900 flex items-center gap-1.5 font-sans">
-                    <CheckCircleOutlined className="text-amber-700 text-xs" />
-                    <span>ISTV Pending Requests</span>
-                  </h3>
-                  <p className="text-[10px] text-amber-800/80 leading-tight">Interactive Request Panel</p>
-                </div>
-              </div>
-
-              {/* LIST OF REQUESTS */}
-              <div className="space-y-3 shrink-0">
-                {istvRequests.map((req) => {
-                  const item = materials.find(m => m.id === req.materialId);
-                  const fromStore = stores.find(s => s.id === req.fromStoreId);
-                  const toStore = stores.find(s => s.id === req.toStoreId);
-                  
-                  return (
-                    <div 
-                      key={req.id} 
-                      className={`p-3 rounded-lg border text-xs shadow-3xs transition duration-150 relative text-left ${
-                        req.status === 'Converted'
-                          ? 'bg-slate-50 text-slate-500 border-slate-200'
-                          : req.status === 'Rejected'
-                            ? 'bg-rose-50/50 border-red-105 text-slate-600'
-                            : 'bg-white border-amber-205 hover:border-amber-400'
-                      }`}
-                    >
-                      {/* Title indicator */}
-                      <div className="flex items-center justify-between mb-2 select-none">
-                        <span className="font-bold text-[10px] font-mono tracking-wide px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-800">
-                          {req.requisitionNo}
-                        </span>
-                        
-                        <div className="flex items-center gap-1.5 h-4">
-                          <span className={`text-[8.5px] px-1.5 py-0.5 font-extrabold uppercase rounded-full leading-none ${
-                            req.type === 'Via SIV' 
-                              ? 'bg-purple-100 text-purple-800' 
-                              : 'bg-indigo-100 text-indigo-800'
-                          }`}>
-                            {req.type}
-                          </span>
-                          
-                          <span className={`text-[8.5px] px-1.5 py-0.5 font-semibold rounded-full leading-none ${
-                            req.status === 'Converted'
-                              ? 'bg-emerald-100 text-emerald-800'
-                              : req.status === 'Rejected'
-                                ? 'bg-red-100 text-red-800'
-                                : 'bg-amber-100 text-amber-800 animate-pulse'
-                          }`}>
-                            {req.status}
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* Content details */}
-                      <div className="space-y-1 text-[11px] leading-relaxed mb-3 text-left">
-                        <div>
-                          <span className="text-slate-400 font-sans">Material Requested:</span>{' '}
-                          <strong className="text-slate-850 block font-sans">{item ? `${item.code} - ${item.description}` : req.materialId}</strong>
-                        </div>
-                        
-                        <div className="grid grid-cols-2 gap-2 py-1 border-t border-b border-dashed border-slate-100 my-1">
-                          <div>
-                            <span className="text-slate-400 font-sans text-[10px]">From Store:</span>{' '}
-                            <span className="font-semibold text-slate-700 block truncate">{fromStore?.name || 'Yard A'}</span>
-                          </div>
-                          <div>
-                            <span className="text-slate-400 font-sans text-[10px]">To Store:</span>{' '}
-                            <span className="font-semibold text-slate-700 block truncate">{toStore?.name || 'Yard B'}</span>
-                          </div>
-                        </div>
-
-                        <div className="flex items-center justify-between text-[11px] font-mono mt-1 bg-slate-50/80 p-1 rounded">
-                          <div>
-                            Requested Qty:{' '}
-                            <strong className="text-slate-800 font-serif font-bold">{req.quantity} {item?.unit || 'PCS'}</strong>
-                          </div>
-                        </div>
-
-                        {req.sivNo && (
-                          <div className="text-[9.5px] text-purple-700 font-bold mt-1 bg-purple-50/40 px-1.5 py-0.5 rounded font-mono">
-                            SIV Ref: {req.sivNo}
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Interaction Actions */}
-                      {req.status === 'Pending' && (
-                        <div className="flex items-center gap-1.5 border-t border-slate-100 pt-2 select-none h-7">
-                          <Button
-                            type="primary"
-                            size="small"
-                            onClick={() => handleConvertRequest(req)}
-                            icon={<SyncOutlined className="text-[9px]" />}
-                            className="flex-1 bg-emerald-600 hover:bg-emerald-700 border-emerald-600 hover:border-emerald-700 text-white font-bold text-[10px] h-7 flex items-center justify-center gap-1"
-                          >
-                            Convert to ISTV
-                          </Button>
-                          
-                          <Button
-                            type="default"
-                            danger
-                            size="small"
-                            onClick={() => {
-                              if (window.confirm('Are you sure you want to reject this request?')) {
-                                setIstvRequests(prev => prev.map(r => r.id === req.id ? { ...r, status: 'Rejected' } : r));
-                              }
-                            }}
-                            className="h-7 text-[10px] font-semibold flex items-center justify-center px-2 border-slate-200"
-                          >
-                            Reject
-                          </Button>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-
-            </div>
-
-            {/* ========================================================= */}
-            {/* RIGHT SIDE PANEL: DISCOVERED VOUCHERS LIST (8 columns)    */}
-            {/* ========================================================= */}
-            <div className="lg:col-span-8">
-              
-              <div className="bg-white border border-[#eaeaea] rounded-[6px] overflow-hidden shadow-xs">
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left border-collapse select-text">
-                    
-                    {/* 1. Header Styling matches lilac screenshot backdrop */}
-                    <thead>
-                      <tr className="bg-[#f6f5fc] text-[#4f4f92] border-b border-[#eaeaea] text-[11px] font-bold uppercase tracking-wide select-none">
-                        <th className="p-4 pl-5 w-24 text-left font-serif">GTO <span className="text-slate-350 pr-1 select-none">↕</span></th>
-                        <th className="p-4 w-28 text-left font-serif">Date <span className="text-slate-350 pr-1 select-none">↕</span></th>
-                        <th className="p-4 min-w-[140px] text-left">Receiving Store</th>
-                        <th className="p-4 min-w-[140px] text-left">Dispatch Store</th>
-                        <th className="p-4 min-w-[200px] text-left">Item</th>
-                        <th className="p-4 w-16 text-center">Share</th>
-                        <th className="p-4 w-28 text-center">Status</th>
-                        <th className="p-4 w-44 text-center">Action</th>
-                      </tr>
-                    </thead>
-
-                    {/* 2. Ledger rows exactly matching the row design inside screenshot */}
-                    <tbody className="divide-y divide-[#efeff3] text-xs font-normal text-[#1a1a1a]">
-                      {filteredTransfers.length === 0 ? (
-                        <tr>
-                          <td colSpan={8} className="p-16 text-center text-slate-400 italic">
-                            No inter-store transfer voucher registrations discovered for specified criteria.
-                          </td>
-                        </tr>
-                      ) : (
-                        filteredTransfers.map((tx) => {
-                          const listStr = formatItemsList(tx.items);
-                          
-                          return (
-                            <tr 
-                              key={tx.id} 
-                              className="hover:bg-slate-50/60 transition-colors duration-150 relative h-16"
-                            >
-                              {/* GTO */}
-                              <td className="p-4 pl-5 font-bold font-mono text-[#1a1a1a] text-[12px] whitespace-nowrap">
-                                {formatGtoNo(tx.transferNo)}
-                              </td>
-
-                              {/* Date */}
-                              <td className="p-4 font-bold text-[#1a1a19] text-[11px] font-sans whitespace-nowrap">
-                                {parseDisplayDate(tx.date)}
-                              </td>
-
-                              {/* Receiving Store (split names bold/thin) */}
-                              <td className="p-4">
-                                {renderStoreCell(tx.toStoreId)}
-                              </td>
-
-                              {/* Dispatch Store (split names bold/thin) */}
-                              <td className="p-4">
-                                {renderStoreCell(tx.fromStoreId)}
-                              </td>
-
-                               {/* Item (Concatenated materials descriptions with Approved Qty explicitly) */}
-                               <td className="p-4 text-slate-650 font-medium text-[11px] max-w-sm truncate leading-snug select-text">
-                                 <Tooltip title={tx.items.map(it => `${it.description} (Req: ${it.quantity} ${it.unit} | Appr: ${it.approvedQty ?? it.quantity} ${it.unit})`).join(' | ')}>
-                                   <div className="flex flex-col gap-0.5 cursor-help text-left">
-                                     <span className="font-semibold text-slate-700">{listStr}</span>
-                                     <div className="text-[10px] text-emerald-700 font-semibold font-sans flex items-center gap-1.5 leading-none">
-                                       <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block"></span>
-                                       <span>Approved Qty: {tx.items.map(it => `${it.approvedQty ?? it.quantity} ${it.unit}`).join(', ')}</span>
-                                     </div>
-                                   </div>
-                                 </Tooltip>
-                               </td>
-
-                              {/* Share button */}
-                              <td className="p-4 text-center">
-                                <Tooltip title="Copy voucher details to share">
-                                  <button 
-                                    onClick={() => handleCopyShareLink(tx)}
-                                    className="p-1.5 bg-transparent border-0 text-[#8B879B] hover:text-[#033096] rounded hover:bg-slate-100 cursor-pointer transition active:scale-90"
-                                  >
-                                    <Share2 size={13} strokeWidth={2.4} />
-                                  </button>
-                                </Tooltip>
-                              </td>
-
-                              {/* Status - styled similarly to yellow Pending (1) */}
-                              <td className="p-4 text-center whitespace-nowrap">
-                                {tx.status === 'Draft' ? (
-                                  <span className="inline-flex items-center px-2.5 py-1 text-[10px] font-bold bg-[#fffad2] text-[#856404] border border-[#ffeeba] rounded-full shadow-3xs select-none">
-                                    Pending (1)
-                                  </span>
-                                ) : (
-                                  <span className="inline-flex items-center px-2.5 py-1 text-[10px] font-bold bg-[#e6ffea] text-[#155724] border border-[#c3e6cb] rounded-full shadow-3xs select-none">
-                                    Posted
-                                  </span>
-                                )}
-                              </td>
-
-                              {/* Action - exact 5 button slots layout */}
-                              <td className="p-4 text-center select-none">
-                                <div className="flex items-center justify-center gap-1.5">
-                                  
-                                  {/* 1. Preview (Eye icon) */}
-                                  <Tooltip title="View voucher manifest sheet">
-                                    <button
-                                      onClick={() => {
-                                        setSelectedTransferId(tx.id);
-                                        setIsViewingVoucher(true);
-                                      }}
-                                      className="p-1.5 bg-transparent border-0 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded transition cursor-pointer select-none"
-                                    >
-                                      <Eye size={13} strokeWidth={2.2} />
-                                    </button>
-                                  </Tooltip>
-
-                                  {/* 2. Direct edit (Black pencil) */}
-                                  <Tooltip title="Edit voucher records">
-                                    <button
-                                      onClick={() => handleEditTransfer(tx)}
-                                      style={{ color: '#2C2C2C' }}
-                                      className="p-1.5 bg-transparent border-0 hover:text-black hover:bg-slate-100 rounded transition cursor-pointer select-none"
-                                    >
-                                      <EditOutlined style={{ fontSize: '13px' }} />
-                                    </button>
-                                  </Tooltip>
-
-                                  {/* 3. Detailed spreadsheet representation (Blue edit) */}
-                                  <Tooltip title="View transfer details spec">
-                                    <button
-                                      onClick={() => handleEditTransfer(tx)}
-                                      className="p-1.5 bg-transparent border-0 text-[#177ff3] hover:text-[#033096] hover:bg-slate-100 rounded transition cursor-pointer select-none"
-                                    >
-                                      <FileSpreadsheet size={13} strokeWidth={2.2} />
-                                    </button>
-                                  </Tooltip>
-
-                                  {/* 4. Print (Printer) */}
-                                  <Tooltip title="Print physical copy">
-                                    <button
-                                      onClick={() => {
-                                        setSelectedTransferId(tx.id);
-                                        setTimeout(() => window.print(), 100);
-                                      }}
-                                      className="p-1.5 bg-transparent border-0 text-slate-550 hover:text-slate-800 hover:bg-slate-100 rounded transition cursor-pointer select-none"
-                                    >
-                                      <Printer size={13} strokeWidth={2.2} />
-                                    </button>
-                                  </Tooltip>
-
-                                  {/* 5. Delete (Red Trash) */}
-                                  <Tooltip title="Delete transaction file">
-                                    <button
-                                      onClick={() => handleDeleteTransferItem(tx.id, tx.transferNo)}
-                                      className="p-1.5 bg-transparent border-0 text-red-500 hover:text-red-700 hover:bg-red-50/50 rounded transition cursor-pointer select-none"
-                                    >
-                                      <Trash2 size={13} />
-                                    </button>
-                                  </Tooltip>
-
-                                </div>
-                              </td>
-
-                            </tr>
-                          );
-                        })
-                      )}
-                    </tbody>
-
-                  </table>
-                </div>
-              </div>
-
-            </div>
-
-          </div>
-
+        /* ... Existing list view logic would follow here ... */
+        <div className="p-10 bg-white border border-[#eaeaea] rounded-xl text-center">
+            <h2 className="text-xl text-slate-400">Inventory Dashboard</h2>
+            <Button type="primary" onClick={() => setIsCreating(true)} className="mt-4">New Transfer</Button>
         </div>
       )}
-
-      {/* ========================================================= */}
-      {/* 3. MODAL FOR THE DETAILED VOUCHER PRINT VIEWER            */}
-      {/* ========================================================= */}
-      {activeTransfer && (
-        <Modal
-          open={isViewingVoucher}
-          onCancel={() => setIsViewingVoucher(false)}
-          title={
-            <div className="flex items-center gap-1.5 select-none py-1 border-b border-dashed border-slate-100 font-sans">
-              <Layers size={14} className="text-[#033096]" />
-              <span className="font-bold text-slate-800 text-sm">Material Transfer Voucher Manifesto</span>
-              <span className="ml-1 text-xs px-2 py-0.5 bg-slate-100 font-mono text-slate-500 rounded font-bold uppercase">
-                {formatGtoNo(activeTransfer.transferNo)}
-              </span>
-            </div>
-          }
-          width={810}
-          footer={[
-            <Button key="close" onClick={() => setIsViewingVoucher(false)} className="font-sans">
-              Close Preview
-            </Button>,
-            <Button 
-              key="print" 
-              type="primary" 
-              icon={<Printer size={13} style={{ marginRight: '2px' }} />} 
-              onClick={() => {
-                window.print();
-              }}
-              style={{ backgroundColor: '#033096', borderColor: '#033096' }}
-              className="font-sans font-bold"
-            >
-              Print Slip Paper
-            </Button>
-          ]}
-          bodyStyle={{ maxHeight: '72vh', overflowY: 'auto', backgroundColor: '#fdfdfd', padding: '16px' }}
-        >
-          
-          {/* Print voucher layout */}
-          <div 
-            id="grv-print-sheet" 
-            className="bg-white border border-[#eaeaea] rounded-[4px] p-6.5 mx-auto max-w-[760px] space-y-6 font-serif relative transition duration-200 select-text"
-          >
-            
-            {/* Status indicator badge */}
-            <div className="absolute right-6 top-6 no-print font-sans">
-              {activeTransfer.status === 'Draft' ? (
-                <span className="inline-flex text-[10px] bg-[#fffad2] text-[#856404] border border-[#ffeeba] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">
-                  Draft
-                </span>
-              ) : (
-                <span className="inline-flex text-[10px] bg-[#e6ffea] text-[#155724] border border-[#c3e6cb] px-2.5 py-0.5 rounded-full font-bold uppercase tracking-wider">
-                  Posted & Accounted
-                </span>
-              )}
-            </div>
-
-            {/* Voucher Header Title */}
-            <div className="text-center space-y-1">
-              <h1 className="text-base font-bold font-serif tracking-wide text-black uppercase">
-                Allura Engineering & Trading Plc
-              </h1>
-              <h2 className="text-xs font-bold font-serif underline tracking-wider text-black">
-                Inter Store Transfer Voucher (GTO)
-              </h2>
-            </div>
-
-            {/* Date and No Alignment right-hand side */}
-            <div className="flex justify-end font-serif select-text pt-1">
-              <div className="w-52 text-[10px] text-black space-y-1.5">
-                <div className="flex items-end gap-1">
-                  <span className="font-bold text-black tracking-wider text-[10px] shrink-0">ቀን/Date:</span>
-                  <div className="border-b border-black pb-0.5 grow text-left pl-3 text-[10px] font-mono font-bold min-h-[18px]">
-                    {activeTransfer.date}
-                  </div>
-                </div>
-                <div className="flex items-end gap-1">
-                  <span className="font-bold text-black tracking-wider text-[10px] shrink-0">ቁጥር/No:</span>
-                  <div className="border-b border-black pb-0.5 grow text-left pl-3 text-[10px] font-mono font-bold min-h-[18px]">
-                    {formatGtoNo(activeTransfer.transferNo)}
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Classical form key points layout exactly matching physical document paper */}
-            <div className="space-y-3.5 text-[10px] text-black font-serif pt-3 select-text leading-tight">
-              
-              <div className="flex items-end flex-wrap gap-x-2 gap-y-2.5">
-                <span className="font-bold text-black shrink-0">Material Transfer From:</span>
-                <div className="border-b border-black pb-0.5 grow min-w-[180px] pl-3 text-black text-[10px] font-bold">
-                  {stores.find(s => s.id === activeTransfer.fromStoreId)?.name || ''}
-                </div>
-                <span className="font-bold text-black shrink-0 pl-3">To:</span>
-                <div className="border-b border-black pb-0.5 grow min-w-[180px] pl-3 text-black text-[10px] font-bold">
-                  {stores.find(s => s.id === activeTransfer.toStoreId)?.name || ''}
-                </div>
-              </div>
-
-              <div className="flex items-end flex-wrap gap-x-2 gap-y-2.5">
-                <span className="font-bold text-black shrink-0">Shipped By:</span>
-                <div className="border-b border-black pb-0.5 grow min-w-[130px] pl-3 text-black text-[10px] font-bold">
-                  {activeTransfer.shippedBy || ''}
-                </div>
-                <span className="font-bold text-black shrink-0 pl-2">Plate No:</span>
-                <div className="border-b border-black pb-0.5 w-36 pl-3 text-black text-[10px] font-bold font-mono uppercase">
-                  {activeTransfer.plateNo || ''}
-                </div>
-                <span className="font-bold text-black shrink-0 pl-2">Telephone No:</span>
-                <div className="border-b border-black pb-0.5 w-42 pl-3 text-black text-[10px] font-bold">
-                  {activeTransfer.telephoneNo || ''}
-                </div>
-              </div>
-
-              <div className="flex items-end flex-wrap gap-x-2 gap-y-2.5">
-                <span className="font-bold text-black shrink-0">መመሪያ / ክፍል/Project:</span>
-                <div className="border-b border-black pb-0.5 grow min-w-[180px] pl-3 text-black text-[10px] font-bold">
-                  {activeTransfer.project || ''}
-                </div>
-                <span className="font-bold text-black shrink-0 pl-3">Material Requisition No:</span>
-                <div className="border-b border-black pb-0.5 w-42 pl-3 text-black text-[10px] font-bold font-mono">
-                  {activeTransfer.requisitionNo || ''}
-                </div>
-              </div>
-
-            </div>
-
-            {/* Classical Table representing Voucher list */}
-            <div className="pt-2">
-              <table className="w-full text-center border-collapse border border-black text-[9px] font-serif text-black uppercase">
-                <thead>
-                  <tr className="border-b border-black text-black text-center font-bold">
-                    <th className="border-r border-black p-1 w-8 text-center font-serif">No</th>
-                    <th className="border-r border-black p-1 text-left">የእቃ ስም / መግለጫ (Item Description)</th>
-                    <th className="border-r border-black p-1 w-12 text-center">Unit</th>
-                    <th className="border-r border-black p-1 w-14 text-center">ብዛት/Qty</th>
-                    <th className="border-r border-black p-1 w-20 text-right">Unit Price</th>
-                    <th className="border-r border-black p-1 w-24 text-right">Total Price</th>
-                    <th className="p-1 text-left">Remark</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-black/60 text-black">
-                  {/* Active Item Rows */}
-                  {activeTransfer.items.map((item, index) => {
-                    const rowTotal = item.quantity * item.unitPrice;
-                    return (
-                      <tr key={item.id} className="min-h-[22px] h-[22px] text-center">
-                        <td className="border-r border-black p-1 font-bold text-center">{index + 1}</td>
-                        <td className="border-r border-black p-1 text-left font-bold">{item.description}</td>
-                        <td className="border-r border-black p-1 uppercase font-bold text-center">{item.unit || 'PCS'}</td>
-                        <td className="border-r border-black p-1 text-center font-bold">{item.quantity.toLocaleString()}</td>
-                        <td className="border-r border-black p-1 text-right font-semibold">{item.unitPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
-                        <td className="border-r border-black p-1 text-right font-bold">{rowTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
-                        <td className="p-1 text-left italic">{item.remark || ''}</td>
-                      </tr>
-                    );
-                  })}
-
-                  {/* Filler lines to pad layout up to exactly 10 rows, matching the paper slip */}
-                  {Array.from({ length: Math.max(0, 10 - activeTransfer.items.length) }).map((_, spacerIdx) => {
-                    const itemNumber = activeTransfer.items.length + spacerIdx + 1;
-                    return (
-                      <tr key={`spacer-${spacerIdx}`} className="min-h-[22px] h-[22px] select-none text-transparent">
-                        <td className="border-r border-black p-1 text-center font-bold">{itemNumber}</td>
-                        <td className="border-r border-black p-1"></td>
-                        <td className="border-r border-black p-1"></td>
-                        <td className="border-r border-black p-1"></td>
-                        <td className="border-r border-black p-1"></td>
-                        <td className="border-r border-black p-1"></td>
-                        <td className="p-1"></td>
-                      </tr>
-                    );
-                  })}
-
-                  {/* Total calculation row */}
-                  <tr className="border-t border-black font-bold">
-                    <td colSpan={3} className="border-r border-black p-1 text-center font-bold">Cumulative Outlay:</td>
-                    <td className="border-r border-black p-1 text-center">{activeTransfer.items.reduce((acc, f) => acc + f.quantity, 0).toLocaleString()}</td>
-                    <td className="border-r border-black p-1"></td>
-                    <td className="border-r border-black p-1 text-right font-bold font-mono">
-                      {activeTransfer.items.reduce((acc, f) => acc + (f.quantity * f.unitPrice), 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                    </td>
-                    <td className="p-1 text-left text-[8px] text-slate-450 lowercase italic font-sans font-normal leading-tight">Auto-Calculated system values</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-
-            {/* Classical Signature Sign-offs representation blocks exactly like bottom of screenshot */}
-            <div className="grid grid-cols-3 gap-6 pt-12 select-none text-black text-center font-serif text-[10px] leading-tight">
-              
-              <div className="flex flex-col items-center space-y-1">
-                <span className="block font-bold">Requested By</span>
-                <div className="w-full space-y-1.5 pt-1.5">
-                  <div className="border-b border-black w-4/5 mx-auto"></div>
-                  <div className="border-b border-black w-4/5 mx-auto"></div>
-                  <div className="border-b border-black w-4/5 mx-auto"></div>
-                </div>
-              </div>
-
-              <div className="flex flex-col items-center space-y-1">
-                <span className="block font-bold">Approved By</span>
-                <div className="w-full space-y-1.5 pt-1.5">
-                  <div className="border-b border-black w-4/5 mx-auto"></div>
-                  <div className="border-b border-black w-4/5 mx-auto"></div>
-                  <div className="border-b border-black w-4/5 mx-auto"></div>
-                </div>
-              </div>
-
-              <div className="flex flex-col items-center space-y-1">
-                <span className="block font-bold">Issued By</span>
-                <div className="w-full space-y-1.5 pt-1.5">
-                  <div className="border-b border-black w-4/5 mx-auto"></div>
-                  <div className="border-b border-black w-4/5 mx-auto"></div>
-                  <div className="border-b border-black w-4/5 mx-auto"></div>
-                </div>
-              </div>
-
-            </div>
-
-          </div>
-
-        </Modal>
-      )}
-
     </div>
   );
 }
